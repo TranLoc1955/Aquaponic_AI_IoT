@@ -1,0 +1,264 @@
+/* guide.css - Light theme for guide page */
+
+/* Layout */
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Header */
+.header {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-8);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-header);
+    flex-shrink: 0;
+}
+
+.header-title {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+}
+
+.header-title .material-symbols-outlined {
+    color: var(--primary);
+}
+
+/* Content */
+.content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-6);
+    scroll-behavior: smooth;
+}
+
+.content-container {
+    max-width: 80rem;
+    margin: 0 auto;
+}
+
+.content-container>*+* {
+    margin-top: var(--space-8);
+}
+
+/* Guide cards */
+.guide-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-3xl);
+    padding: var(--space-8);
+}
+
+/* Intro card specific */
+.intro-card {
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%);
+}
+
+.card-header-section {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.icon-badge {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: var(--radius-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-size: var(--text-3xl);
+}
+
+.section-title {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.section-subtitle {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.intro-text {
+    font-size: var(--text-base);
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* Card title */
+.card-title {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-6) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.card-title .material-symbols-outlined {
+    color: var(--primary);
+}
+
+/* Steps list */
+.steps-list>*+* {
+    margin-top: var(--space-6);
+}
+
+.step-item {
+    background: var(--bg-hover);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-6);
+}
+
+.step-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: var(--text-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--font-bold);
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-title {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2) 0;
+}
+
+.step-text {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Knowledge grid */
+.knowledge-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: var(--space-6);
+}
+
+@media (min-width: 768px) {
+    .knowledge-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.knowledge-item {
+    background: var(--bg-hover);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-6);
+}
+
+.knowledge-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.knowledge-header h4 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.knowledge-item p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Icon colors */
+.icon-temp {
+    color: #ff6b6b;
+}
+
+.icon-humid {
+    color: #4ecdc4;
+}
+
+.icon-ph {
+    color: #a78bfa;
+}
+
+.icon-light {
+    color: #ffd93d;
+}
+
+/* Tips list */
+.tips-list>*+* {
+    margin-top: var(--space-4);
+}
+
+.tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    background: var(--bg-hover);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    padding: var(--space-4);
+}
+
+.tip-item .material-symbols-outlined {
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.tip-item p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* Large screens */
+@media (min-width: 1024px) {
+    .content {
+        padding: var(--space-10);
+    }
+}
