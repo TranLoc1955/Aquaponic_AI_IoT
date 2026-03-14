@@ -165,13 +165,33 @@ body {
 /* ===== HEADER ===== */
 .header {
     height: var(--header-height);
-    display: flex;
+    display: grid !important;
+    grid-template-columns: 1fr auto 1fr !important;
     align-items: center;
-    justify-content: space-between;
     padding: 0 var(--space-10);
     background: var(--bg-header);
     border-bottom: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
+    position: relative;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.header-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
 }
 
 .header-title {
@@ -195,7 +215,195 @@ body {
     padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-full);
     border: 1px solid var(--primary);
+    letter-spacing: 1px;
 }
+
+/* ===== NOTIFICATION BELL ===== */
+.notif-wrapper {
+    position: relative;
+}
+
+.notif-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all var(--transition-base);
+    font-size: 22px;
+}
+
+.notif-btn:hover {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--bg-header);
+    display: none;
+}
+
+.notif-badge.has-notif {
+    display: flex;
+}
+
+/* Dropdown */
+.notif-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 340px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    z-index: 1000;
+    overflow: hidden;
+    display: none;
+    animation: dropIn 0.2s ease;
+}
+
+.notif-dropdown.open {
+    display: block;
+}
+
+@keyframes dropIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notif-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.notif-header-row h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+}
+
+.notif-mark-all {
+    font-size: var(--text-xs);
+    color: var(--primary);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--font-main);
+}
+
+.notif-mark-all:hover {
+    text-decoration: underline;
+}
+
+.notif-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border-light);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.notif-item:hover {
+    background: var(--bg-hover);
+}
+
+.notif-item.unread {
+    background: var(--primary-bg);
+}
+
+.notif-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.notif-icon.warning {
+    background: #fff3cd;
+    color: #f59e0b;
+}
+
+.notif-icon.danger {
+    background: #fde8e8;
+    color: var(--danger);
+}
+
+.notif-icon.success {
+    background: #d1fae5;
+    color: var(--success);
+}
+
+.notif-icon.info {
+    background: var(--primary-bg);
+    color: var(--primary);
+}
+
+.notif-content {
+    flex: 1;
+}
+
+.notif-content p {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    line-height: 1.4;
+    margin-bottom: 2px;
+}
+
+.notif-content span {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.notif-empty {
+    padding: var(--space-8) var(--space-5);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
 
 /* ===== CONTENT AREA ===== */
 .content {
@@ -234,36 +442,77 @@ body {
 }
 
 /* Spacing */
-.mb-4 { margin-bottom: var(--space-4); }
-.mb-6 { margin-bottom: var(--space-6); }
-.mb-8 { margin-bottom: var(--space-8); }
-.mt-4 { margin-top: var(--space-4); }
-.mt-6 { margin-top: var(--space-6); }
+.mb-4 {
+    margin-bottom: var(--space-4);
+}
 
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.gap-2 { gap: var(--space-2); }
-.gap-3 { gap: var(--space-3); }
-.gap-4 { gap: var(--space-4); }
+.mb-6 {
+    margin-bottom: var(--space-6);
+}
 
-.hidden { display: none; }
-.block { display: block; }
+.mb-8 {
+    margin-bottom: var(--space-8);
+}
+
+.mt-4 {
+    margin-top: var(--space-4);
+}
+
+.mt-6 {
+    margin-top: var(--space-6);
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.gap-2 {
+    gap: var(--space-2);
+}
+
+.gap-3 {
+    gap: var(--space-3);
+}
+
+.gap-4 {
+    gap: var(--space-4);
+}
+
+.hidden {
+    display: none;
+}
+
+.block {
+    display: block;
+}
 
 /* Width */
-.w-full { width: 100%; }
+.w-full {
+    width: 100%;
+}
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
     .sidebar {
         display: none;
     }
-    
+
     .content {
         padding: var(--space-6);
     }
-    
+
     .header {
         padding: 0 var(--space-6);
     }
@@ -273,11 +522,11 @@ body {
     .sensor-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .control-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .content {
         padding: var(--space-4);
     }

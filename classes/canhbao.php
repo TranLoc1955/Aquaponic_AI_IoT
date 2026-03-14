@@ -4,14 +4,11 @@ class CanhBao
 {
     private $conn;
     private $table = "canhbao";
-
-    // Constructor nhận connection
     public function __construct($db)
     {
         $this->conn = $db;
     }
 
-    // 1️⃣ Thêm cảnh báo mới
     public function themCanhBao($id_cambien, $giatri, $noidung, $mucdo)
     {
         $sql = "INSERT INTO {$this->table}
@@ -29,7 +26,6 @@ class CanhBao
         ]);
     }
 
-    // 2️⃣ Lấy danh sách cảnh báo MỚI
     public function layCanhBaoMoi()
     {
         $sql = "SELECT *
@@ -43,7 +39,6 @@ class CanhBao
         return $stmt;
     }
 
-    // 3️⃣ Lấy cảnh báo theo cảm biến
     public function layCanhBaoTheoCamBien($id_cambien)
     {
         $sql = "SELECT *
@@ -57,8 +52,6 @@ class CanhBao
 
         return $stmt;
     }
-
-    // 4️⃣ Cập nhật trạng thái cảnh báo
     public function capNhatTrangThai($id_canhbao, $trangthai)
     {
         $sql = "UPDATE {$this->table}
@@ -72,8 +65,6 @@ class CanhBao
             ':id_canhbao'  => $id_canhbao
         ]);
     }
-
-    // 5️⃣ Lấy tất cả cảnh báo (admin)
     public function layTatCa()
     {
         $sql = "SELECT *

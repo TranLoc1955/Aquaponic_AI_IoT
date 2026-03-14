@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="../css/layout.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="../css/cauhinh.css">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
 </head>
 <body>
@@ -18,18 +18,34 @@
     <?php include '../components/sidebar_light.php'; ?>
     <main class="main-content">
         <header class="header">
-            <div class="header-info">
-                <h2 class="header-title">Thiết lập ngưỡng cảnh báo</h2>
-                <p class="header-subtitle">Quản lý các quy tắc an toàn cho vườn</p>
-            </div>
-            <button onclick="saveConfig()" class="save-button">
-                <span class="material-symbols-rounded"></span> Lưu thay đổi
-            </button>
-        </header>
+                <!-- Left: Title -->
+                <div class="header-left">
+                    <div class="header-info">
+                        <h2 class="header-title">Thiết lập ngưỡng cảnh báo</h2>
+                        <p class="header-subtitle">Quản lý các quy tắc an toàn cho vườn</p>
+                    </div>
+                </div>
+                <!-- Center: Clock -->
+                <div class="header-center">
+                    <div class="clock" id="clock">--:--:--</div>
+                </div>
+                <!-- Right: Notification -->
+                <div class="header-right">
+                    <a href="thongbaoW.php" class="notif-wrapper" title="Thông báo" style="text-decoration:none;">
+                        <div class="notif-btn"><span class="material-symbols-outlined">notifications</span></div>
+                        <span class="notif-badge" id="notif-badge"></span>
+                    </a>
+                </div>
+            </header>
 
         <div class="content">
             <div class="content-container">
                 
+                <div class="save-bar">
+                    <button onclick="saveConfig()" class="save-button">
+                        <span class="material-symbols-outlined">backup</span> Lưu thay đổi
+                    </button>
+                </div>
                 <div id="config-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="col-span-full flex justify-center mt-20 text-primary">
                         <span class="material-symbols-rounded animate-spin text-4xl">progress_activity</span>
@@ -37,8 +53,11 @@
                 </div>
 
                 <div class="info-box mt-8 flex items-start gap-3">
-                    <span class="material-symbols-rounded info-icon">info</span>
+                         <span class="material-symbols-outlined">
+help_center
+</span>
                     <div class="info-text">
+                        
                         <p><strong>Hướng dẫn:</strong></p>
                         <ul>
                             <li>Bật nút <strong>Giám sát</strong> để kích hoạt cảnh báo cho cảm biến đó.</li>
@@ -53,6 +72,7 @@
     </main>
 </div>
 <script src="../js/auth.js"></script>
+<script src="../js/notification.js"></script>
 <script src="../js/cauhinh.js"></script>
 </body>
 </html>

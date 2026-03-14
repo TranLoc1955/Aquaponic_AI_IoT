@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - HydroSmart</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     
     <link rel="stylesheet" href="../css/reset.css">
@@ -19,8 +19,21 @@
 
         <main class="main-content">
             <header class="header">
-                <h2 class="header-title">Tổng quan hệ thống</h2>
-                <div class="clock" id="clock">--:--:--</div>
+                <!-- Left: Title -->
+                <div class="header-left">
+                    <h2 class="header-title" >Tổng quan hệ thống</h2>
+                </div>
+                <!-- Center: Clock -->
+                <div class="header-center">
+                    <div class="clock" id="clock">--:--:--</div>
+                </div>
+                <!-- Right: Notification -->
+                <div class="header-right">
+                    <a href="thongbaoW.php" class="notif-wrapper" title="Thông báo" style="text-decoration:none;">
+                        <div class="notif-btn"><span class="material-symbols-outlined">notifications</span></div>
+                        <span class="notif-badge" id="notif-badge"></span>
+                    </a>
+                </div>
             </header>
 
             <div class="content">
@@ -50,7 +63,7 @@
                             <div class="sensor-label">Độ ẩm</div>
                             <div class="sensor-value">
                                 <span id="val-hum">--</span>
-                                <span class="sensor-unit"></span>
+                                <span class="sensor-unit">%</span>
                             </div>
                         </div>
 
@@ -69,15 +82,15 @@
                             </div>
                         </div>
 
-                        <!-- pH Card -->
+                        <!-- Water Card -->
                         <div class="sensor-card ph">
                             <div class="sensor-header">
                                 <div class="sensor-icon">
-                                    <span class="material-symbols-outlined">water_ph</span>
+                                    <span class="material-symbols-outlined" >water</span>
                                 </div>
                                 <div class="sensor-badge">Cảm biến 4</div>
                             </div>
-                            <div class="sensor-label">Độ pH</div>
+                            <div class="sensor-label">Mức nước</div>
                             <div class="sensor-value">
                                 <span id="val-ph">--</span>
                             </div>
@@ -88,7 +101,9 @@
                     <div class="control-panel">
                         <div class="control-header">
                             <div class="control-header-icon">
-                                <span class="material-symbols-outlined">settings_remote</span>
+                                <span class="material-symbols-outlined" style="font-size: 25px;">
+missing_controller
+</span>
                             </div>
                             <h3>Trung tâm điều khiển</h3>
                         </div>
@@ -155,14 +170,8 @@
     <script src="../js/auth.js"></script>
     <script src="../js/config.js"></script>
     <script src="../js/utils.js"></script>
+    <script src="../js/notification.js"></script>
     <script>
-        // Clock
-        function startClock() {
-            setInterval(() => {
-                const now = new Date();
-                document.getElementById('clock').innerText = now.toLocaleTimeString('vi-VN', {hour12: false});
-            }, 1000);
-        }
 
         // Get User ID
         function getUserId() {
@@ -264,8 +273,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Auth is handled by auth.js
 
-            // Start
-            startClock();
             loadData();
             setInterval(loadData, 5000); // Poll every 5 seconds
         });

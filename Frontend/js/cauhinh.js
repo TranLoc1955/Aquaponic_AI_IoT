@@ -36,7 +36,7 @@ function renderForm(configs) {
     const meta = {
         1: { icon: 'thermostat', name: 'Nhiệt độ' },
         2: { icon: 'water_drop', name: 'Độ ẩm' },
-        3: { icon: 'water_ph', name: 'Độ pH' },
+        3: { icon: 'water', name: 'Mức nước' },
         4: { icon: 'light_mode', name: 'Ánh sáng' },
     };
 

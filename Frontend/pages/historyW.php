@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="../css/history.css">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
 </head>
 <body>
@@ -22,16 +22,26 @@
 
     <main class="history-main">
 
-        <header class="history-header">
-            <h2 class="history-title">Lịch sử dữ liệu - Phân tích</h2>
-            <div class="header-actions">
-                <div class="filter-group">
-                    <button onclick="quickFilter('today')" class="filter-btn" id="btn-today">Hôm nay</button>
-                    <button onclick="quickFilter('week')" class="filter-btn" id="btn-week">7 ngày</button>
-                    <button onclick="quickFilter('all')" class="filter-btn active" id="btn-all">Tất cả</button>
+        <header class="header history-header">
+                <div class="header-left">
+                    <h2 class="history-title">Lịch sử dữ liệu - Phân tích</h2>
                 </div>
-            </div>
-        </header>
+                <div class="header-center">
+                    <div class="clock" id="clock">--:--:--</div>
+                </div>
+                <!-- Right: Filters + Notification -->
+                <div class="header-right">
+                    <div class="filter-group">
+                        <button onclick="quickFilter('today')" class="filter-btn" id="btn-today">Hôm nay</button>
+                        <button onclick="quickFilter('week')" class="filter-btn" id="btn-week">7 ngày</button>
+                        <button onclick="quickFilter('all')" class="filter-btn active" id="btn-all">Tất cả</button>
+                    </div>
+                    <a href="thongbaoW.php" class="notif-wrapper" title="Thông báo" style="text-decoration:none;">
+                        <div class="notif-btn"><span class="material-symbols-outlined">notifications</span></div>
+                        <span class="notif-badge" id="notif-badge"></span>
+                    </a>
+                </div>
+            </header>
 
         <div class="content-area">
             <div class="content-wrapper">
@@ -61,7 +71,7 @@
                         <div class="active-indicator humidity-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(4, 'Ánh sáng', '#eab308', 'Lux', 10000, 20000, 500)"
+                    <button onclick="changeSensor(4, 'Ánh sáng', '#eab308', '', 10000, 20000, 2500)"
                             id="tab-4" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon light material-symbols-outlined">light_mode</span>
@@ -72,14 +82,14 @@
                         <div class="active-indicator light-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(3, 'Độ pH', '#a855f7', '', 4, 10, 1)"
+                    <button onclick="changeSensor(3, 'Mực nước', '#a855f7', '', 200, 500, 50)"
                             id="tab-3" class="sensor-tab">
                         <div class="tab-header">
-                            <span class="tab-icon ph material-symbols-outlined">water_ph</span>
+                            <span class="tab-icon ph material-symbols-outlined">water</span>
                             <span class="tab-badge">Cảm biến thứ 4</span>
                         </div>
                         <div class="tab-label">Cảm biến</div>
-                        <div class="tab-name ph-text">Độ pH</div>
+                        <div class="tab-name ph-text">Mức nước</div>
                         <div class="active-indicator ph-bg"></div>
                     </button>
 
@@ -88,10 +98,9 @@
                 <!-- Chart + Stats Layout -->
                 <div class="chart-stats-layout section-gap">
 
-                    <!-- Chart Card -->
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3 class="chart-title" id="chart-title">Biểu đồ theo dõi</h3>
+                            <h3 class="chart-title" id="chart-title" style="font-size: 30px;">Biểu đồ theo dõi</h3>
                             <div class="chart-controls">
                                 <input type="date" id="start-date" class="date-input">
                                 <span class="date-separator">-</span>
@@ -99,18 +108,16 @@
                                 <button onclick="loadHistory(true)" class="search-btn material-symbols-outlined">search</button>
                             </div>
                         </div>
-                        <div class="chart-wrapper">
+                        <div class="chart-wrapper" style="position: relative; height: 350px; width: 100%;">
                             <canvas id="myChart"></canvas>
                         </div>
-                    </div> 
-                </div>
-
-                <!-- Stats Card -->
+                    </div>
+                    <!-- Stats Card -->
                     <div class="stats-card">
                         <div class="stats-header">
                             <h3 class="stats-title">
                                 <span class="material-symbols-outlined">monitoring</span>
-                                Thống kê
+                                Thống kê cảm biến
                             </h3>
                         </div>
                         <div class="stats-content">
@@ -137,6 +144,7 @@
                             </div>
                         </div>
                     </div>
+                </div>
 
                 <!-- Data Table -->
                 <div class="table-container section-gap">
@@ -146,7 +154,7 @@
                                 <tr>
                                     <th>Thời gian</th>
                                     <th>Trạng thái</th>
-                                    <th style="text-align: right;">Giá trị đo</th>
+                                    <th >Giá trị đo</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body">
@@ -161,6 +169,7 @@
 </div>
 
 <script src="../js/auth.js"></script>
+<script src="../js/notification.js"></script>
 <script src="../js/history.js"></script>
 </body>
 </html>

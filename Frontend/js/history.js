@@ -2,7 +2,7 @@ const API_HISTORY = 'http://localhost/Test/API/data_sensor/history.php';
 let myChart = null;
 let currentSensor = {};
 
-// 1. CẤU HÌNH TRUNG TÂM (Đã chỉnh theo yêu cầu của bạn)
+// 1. CẤU HÌNH TRUNG TÂM
 const SENSOR_CONFIG = {
     1: {
         label: 'Nhiệt độ', color: '#fb923c', unit: '°C',
@@ -10,14 +10,14 @@ const SENSOR_CONFIG = {
     },
     2: {
         label: 'Độ ẩm', color: '#3b82f6', unit: '%',
-        min: 40, max: 80, step: 5
+        min: 40, max: 80, step: 15
     },
     3: {
-        label: 'Độ pH', color: '#a855f7', unit: '',
-        min: 4, max: 10, step: 1 // Đã chỉnh step theo ý bạn
+        label: 'Mức nước', color: '#a855f7', unit: '',
+        min: 200, max: 500, step: 50
     },
     4: {
-        label: 'Ánh sáng', color: '#eab308', unit: 'Lux',
+        label: 'Ánh sáng', color: '#eab308', unit: '',
         min: 10000, max: 20000, step: 2500
     }
 };
@@ -123,21 +123,25 @@ async function loadHistory(useDateFilter = false) {
     } catch (e) { console.error(e); }
 }
 
-// 5. Vẽ Biểu đồ (SỬA LỖI STEP TẠI ĐÂY)
+// 5. Vẽ Biểu đồ
 function renderChart(data) {
     const ctx = document.getElementById('myChart');
     if (myChart) myChart.destroy();
 
     const context = ctx.getContext('2d');
-    const gradient = context.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, currentSensor.color);
-    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+    // Gradient fill theo chiều cao thực của canvas
+    const height = ctx.parentElement.offsetHeight || 320;
+    const gradient = context.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, currentSensor.color + '55');   // 33% opacity ở trên
+    gradient.addColorStop(0.6, currentSensor.color + '11'); // rất mờ ở giữa
+    gradient.addColorStop(1, currentSensor.color + '00');   // trong suốt ở dưới
 
     const labels = data.map(item => {
         const parts = item.thoigian.split(' ');
         return parts.length > 1 ? parts[1].substring(0, 5) : item.thoigian;
     });
-    const values = data.map(item => item.giatri);
+    const values = data.map(item => parseFloat(item.giatri));
 
     myChart = new Chart(context, {
         type: 'line',
@@ -148,31 +152,65 @@ function renderChart(data) {
                 data: values,
                 borderColor: currentSensor.color,
                 backgroundColor: gradient,
-                borderWidth: 2,
-                tension: 0.35,
+                borderWidth: 2.5,
+                tension: 0.4,
                 fill: true,
                 pointRadius: 0,
-                pointHoverRadius: 6,
-                pointHoverBackgroundColor: '#fff'
+                pointHitRadius: 20,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: currentSensor.color,
+                pointHoverBorderColor: '#ffffff',
+                pointHoverBorderWidth: 2,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            layout: { padding: { top: 10, right: 10, bottom: 0, left: 0 } },
+            animation: { duration: 600, easing: 'easeInOutQuart' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1a2332',
+                    titleColor: '#9aa5b1',
+                    bodyColor: '#ffffff',
+                    borderColor: currentSensor.color,
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    titleFont: { size: 11, family: "'Be Vietnam Pro', sans-serif" },
+                    bodyFont: { size: 14, weight: 'bold', family: "'Be Vietnam Pro', sans-serif" },
+                    callbacks: {
+                        label: ctx => `${ctx.parsed.y} ${currentSensor.unit}`
+                    }
+                }
+            },
             interaction: { mode: 'index', intersect: false },
             scales: {
-                x: { grid: { display: false }, ticks: { color: '#64748b', maxTicksLimit: 8 } },
-
+                x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: {
+                        color: '#9aa5b1',
+                        font: { size: 11, family: "'Be Vietnam Pro', sans-serif" },
+                        maxTicksLimit: 8,
+                        maxRotation: 0,
+                    }
+                },
                 y: {
-                    grid: { color: '#234839', borderDash: [5, 5] },
-
+                    grid: {
+                        color: 'rgba(0,0,0,0.05)',
+                        drawBorder: false,
+                    },
+                    border: { display: false, dash: [4, 4] },
                     min: currentSensor.min,
                     max: currentSensor.max,
-
                     ticks: {
-                        color: '#64748b',
-                        stepSize: currentSensor.step
+                        color: '#9aa5b1',
+                        font: { size: 11, family: "'Be Vietnam Pro', sans-serif" },
+                        stepSize: currentSensor.step,
+                        callback: val => val + (currentSensor.unit ? ' ' + currentSensor.unit : '')
                     }
                 }
             }

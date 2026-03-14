@@ -35,11 +35,16 @@ try {
 
     $column_name = $data->field; 
     
-    $query = "UPDATE dieukhien SET $column_name = :val, thoigian = NOW() WHERE idthietbi = :did";
+    // Dùng INSERT...ON DUPLICATE KEY UPDATE để tự tạo row nếu chưa có
+    // Giả sử bảng dieukhien có UNIQUE KEY trên cột idthietbi
+    $query = "INSERT INTO dieukhien (idthietbi, $column_name, thoigian) 
+              VALUES (:did, :val, NOW())
+              ON DUPLICATE KEY UPDATE $column_name = :val2, thoigian = NOW()";
     $stmt_upd = $db->prepare($query);
     $stmt_upd->execute([
-        ':val' => $data->value,
-        ':did' => $device_id
+        ':did'  => $device_id,
+        ':val'  => $data->value,
+        ':val2' => $data->value
     ]);
 
     

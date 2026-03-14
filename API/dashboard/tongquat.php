@@ -18,7 +18,7 @@ try {
     $database = new Database();
     $db = $database->connect();
 
-    $query_find = "SELECT id as idthietbi, ma_serial FROM thietbi WHERE id = :uid LIMIT 1";
+    $query_find = "SELECT idthietbi, ma_serial FROM thietbi WHERE id = :uid LIMIT 1";
     $stmt_find = $db->prepare($query_find);
     $stmt_find->bindParam(':uid', $user_id);
     $stmt_find->execute();
@@ -33,6 +33,10 @@ try {
     $stmt_btn = $db->prepare("SELECT maybom, denled, quatgio FROM dieukhien WHERE idthietbi = :did LIMIT 1");
     $stmt_btn->execute([':did' => $device_id]);
     $buttons = $stmt_btn->fetch(PDO::FETCH_ASSOC);
+    // Nếu chưa có row trong dieukhien, trả về mặc định tắt hết
+    if (!$buttons) {
+        $buttons = ['maybom' => 0, 'denled' => 0, 'quatgio' => 0];
+    }
 
     $query_sensor = "SELECT idcambien, giatri FROM dulieucambien 
                      WHERE idthietbi = :did 

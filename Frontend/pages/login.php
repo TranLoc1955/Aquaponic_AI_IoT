@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Đăng nhập / Đăng ký - Aquaponic AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
     <link href="../css/login.css" rel="stylesheet"/>
 </head>
@@ -18,7 +18,7 @@
                         <path clip-rule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor" fill-rule="evenodd"></path>
                     </svg>
                 </div>
-                <h2 class="logo-title">Aquaponic  AI</h2>
+                <h1 class="logo-title">Aquaponic  AIoT</h1>
             </div>
         </header>
 
@@ -28,11 +28,13 @@
                 <div class="hero-overlay"></div>
                 <div class="hero-content">
                     <div class="hero-icon">
-                        <span class="material-symbols-outlined">eco</span>
+       <span class="material-symbols-outlined">
+potted_plant
+</span>
                     </div>
                     <h1 class="hero-title">Giải pháp Thủy canh thông minh</h1>
                     <p class="hero-description">
-                        Hệ thống IoT và AI tiên tiến giúp bạn quản lý vườn rau sạch tại đô thị.
+                        Hệ thống IoT và AI tiên tiến giúp quản lý vườn rau sạch tại đô thị cho người không chuyên.
                     </p>
                 </div>
             </div>
@@ -41,8 +43,8 @@
             <div class="login-form-container">
                 <div class="form-wrapper">
                     <div class="form-header">
-                        <h2 class="form-title">Xin chào!</h2>
-                        <p class="form-subtitle">Kết nối với hệ thống thủy canh của bạn ngay hôm nay.</p>
+                        <h2 class="form-title">Xin chào !</h2>
+                        <p class="form-subtitle">Cùng kiểm tra hệ thống thủy canh của bạn hôm nay ngay nào.</p>
                     </div>
 
                     <!-- Tabs -->

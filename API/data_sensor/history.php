@@ -21,7 +21,7 @@ try {
     $db = $database->connect();
 
     // 1. Tìm thiết bị
-    $stmt_find = $db->prepare("SELECT id as idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
+    $stmt_find = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
     $stmt_find->execute([':uid' => $user_id]);
     $device = $stmt_find->fetch(PDO::FETCH_ASSOC);
     if (!$device) throw new Exception("Không tìm thấy thiết bị");
@@ -30,7 +30,7 @@ try {
     // 2. Xây dựng câu truy vấn
     $sql = "SELECT d.giatri, d.thoigian, c.loaicambien, c.donvido 
             FROM dulieucambien d
-            JOIN cambien c ON d.idcambien = c.idcambien
+            JOIN cambien c ON d.idcambien = c.idcambien AND c.idthietbi = :did2
             WHERE d.idthietbi = :did";
 
     // Lọc theo loại cảm biến
@@ -49,6 +49,7 @@ try {
 
     $stmt = $db->prepare($sql);
     $stmt->bindParam(':did', $device_id);
+    $stmt->bindParam(':did2', $device_id);
     if ($sensor_id > 0) $stmt->bindParam(':sid', $sensor_id);
 
     // Bind tham số ngày hoặc limit

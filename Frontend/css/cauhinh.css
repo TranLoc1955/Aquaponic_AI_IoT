@@ -24,13 +24,8 @@ body {
     overflow: hidden;
 }
 
-/* Header */
+/* Header — chỉ định nghĩa màu sắc riêng, KH override display/grid của layout.css */
 .header {
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 var(--space-8);
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-header);
     flex-shrink: 0;
@@ -53,6 +48,13 @@ body {
     font-size: var(--text-xs);
     color: var(--text-muted);
     margin: 0;
+}
+
+/* Save bar - nằm trên content */
+.save-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--space-4);
 }
 
 /* Save button */

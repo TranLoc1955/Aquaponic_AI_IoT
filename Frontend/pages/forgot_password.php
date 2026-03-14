@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Khôi phục mật khẩu - HydroSmart</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
     <script>
         tailwind.config = { 
             darkMode: "class", 
@@ -18,7 +18,7 @@
                         "surface-dark": "#141b3d" 
                     }, 
                     fontFamily: { 
-                        "display": ["Space Grotesk", "sans-serif"] 
+                        "display": ["Be Vietnam Pro", "sans-serif"] 
                     } 
                 } 
             } 
