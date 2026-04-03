@@ -138,7 +138,7 @@ missing_controller
                                     </label>
                                 </div>
                                 <div class="control-info">
-                                    <h4>Đèn Grow</h4>
+                                    <h4>Đèn</h4>
                                     <p class="control-status" id="txt-light">Đang đồng bộ...</p>
                                 </div>
                             </div>
@@ -147,15 +147,16 @@ missing_controller
                             <div class="control-item">
                                 <div class="control-top">
                                     <div class="control-icon-box fan">
-                                        <span class="material-symbols-outlined">mode_fan</span>
+                                        <span class="material-symbols-outlined">shower</span>
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="sw-fan" onchange="toggleDevice('quatgio', 'sw-fan')">
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
+                            <!--Phun sương sẽ được điều khiển bằng quạt gió, nên vẫn dùng tên quatgio để gửi lệnh lên API-->
                                 <div class="control-info">
-                                    <h4>Quạt Gió</h4>
+                                    <h4>Phun Sương</h4>
                                     <p class="control-status" id="txt-fan">Đang đồng bộ...</p>
                                 </div>
                             </div>
@@ -274,7 +275,7 @@ missing_controller
             // Auth is handled by auth.js
 
             loadData();
-            setInterval(loadData, 5000); // Poll every 5 seconds
+            setInterval(loadData, 3000); // Poll every 5 seconds
         });
     </script>
 </body>

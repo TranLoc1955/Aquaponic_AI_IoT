@@ -26,12 +26,12 @@ try {
     // 2. Đếm số lượng chưa đọc
     $stmt_count = $db->prepare("SELECT COUNT(*) as total FROM canhbao WHERE idthietbi = ? AND trangthai = 0");
     $stmt_count->execute([$device_id]);
-    $unread = $stmt_count->fetch(PDO::FETCH_ASSOC)['total'];
+    $unread = (int) $stmt_count->fetch(PDO::FETCH_ASSOC)['total'];
 
     // 3. Lấy 10 thông báo mới nhất (Kèm tên cảm biến)
     $query = "SELECT c.*, cb.loaicambien, cb.donvido 
               FROM canhbao c
-              LEFT JOIN cambien cb ON c.idcambien = cb.idcambien
+              LEFT JOIN cambien cb ON c.idcambien = cb.idcambien AND c.idthietbi = cb.idthietbi
               WHERE c.idthietbi = :did 
               ORDER BY c.thoigian DESC LIMIT 10";
     

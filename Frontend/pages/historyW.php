@@ -49,7 +49,7 @@
                 <!-- Sensor Tabs -->
                 <div class="sensor-grid section-gap">
 
-                    <button onclick="changeSensor(1, 'Nhiệt độ', '#fb923c', '°C', 10, 35, 5)"
+                    <button onclick="changeSensor(1, 'Nhiệt độ', '#fb923c', '°C', 15, 45, 10)"
                             id="tab-1" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon temp material-symbols-outlined">thermostat</span>
@@ -60,7 +60,7 @@
                         <div class="active-indicator temp-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(2, 'Độ ẩm', '#3b82f6', '%', 40, 80, 15)"
+                    <button onclick="changeSensor(2, 'Độ ẩm', '#3b82f6', '%', 40, 80, 10)"
                             id="tab-2" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon humidity material-symbols-outlined">water_drop</span>
@@ -71,7 +71,7 @@
                         <div class="active-indicator humidity-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(4, 'Ánh sáng', '#eab308', '', 10000, 20000, 2500)"
+                    <button onclick="changeSensor(4, 'Ánh sáng', '#eab308', 'Lux', 0, 10000, 2500)"
                             id="tab-4" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon light material-symbols-outlined">light_mode</span>
@@ -82,7 +82,7 @@
                         <div class="active-indicator light-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(3, 'Mực nước', '#a855f7', '', 200, 500, 50)"
+                    <button onclick="changeSensor(3, 'Mực nước', '#a855f7', '', 0, 2200, 440)"
                             id="tab-3" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon ph material-symbols-outlined">water</span>

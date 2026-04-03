@@ -23,16 +23,21 @@ try {
     if (!$device) throw new Exception("Không tìm thấy thiết bị");
     $device_id = $device['idthietbi'];
 
-    $query = "UPDATE cauhinh_canhbao 
-              SET nguong_tren = :max, nguong_duoi = :min, trangthai = :stt 
-              WHERE id = :id AND idthietbi = :did";
-    
+    $useUnderscore = false;
+    try {
+        $db->query("SELECT nguongtren FROM cauhinh_canhbao LIMIT 1");
+    } catch (Exception $e) {
+        $useUnderscore = (strpos($e->getMessage(), 'nguongtren') !== false || strpos($e->getMessage(), 'Unknown column') !== false);
+    }
+    $maxCol = $useUnderscore ? 'nguong_tren' : 'nguongtren';
+    $minCol = $useUnderscore ? 'nguong_duoi' : 'nguongduoi';
+    $query = "UPDATE cauhinh_canhbao SET {$maxCol} = :max, {$minCol} = :min, trangthai = :stt WHERE id = :id AND idthietbi = :did";
     $stmt = $db->prepare($query);
 
     foreach ($data->configs as $cfg) {
-        $max = ($cfg->nguong_tren === "" || $cfg->nguong_tren === null) ? null : $cfg->nguong_tren;
-        $min = ($cfg->nguong_duoi === "" || $cfg->nguong_duoi === null) ? null : $cfg->nguong_duoi;
-        
+        $max = (isset($cfg->nguongtren) && $cfg->nguongtren !== "" && $cfg->nguongtren !== null) ? $cfg->nguongtren : ((isset($cfg->nguong_tren) && $cfg->nguong_tren !== "" && $cfg->nguong_tren !== null) ? $cfg->nguong_tren : null);
+        $min = (isset($cfg->nguongduoi) && $cfg->nguongduoi !== "" && $cfg->nguongduoi !== null) ? $cfg->nguongduoi : ((isset($cfg->nguong_duoi) && $cfg->nguong_duoi !== "" && $cfg->nguong_duoi !== null) ? $cfg->nguong_duoi : null);
+
         $stmt->execute([
             ':max' => $max,
             ':min' => $min,

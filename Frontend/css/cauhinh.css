@@ -1,6 +1,4 @@
-/* cauhinh.css - Light theme for config page */
 
-/* Use variables from variables.css */
 body {
     font-family: var(--font-main);
     background: var(--bg-main);
@@ -24,7 +22,6 @@ body {
     overflow: hidden;
 }
 
-/* Header — chỉ định nghĩa màu sắc riêng, KH override display/grid của layout.css */
 .header {
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-header);

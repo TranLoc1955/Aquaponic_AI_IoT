@@ -9,20 +9,42 @@ class CanhBao
         $this->conn = $db;
     }
 
+    /**
+     
+     * @param int $idthietbi ID thiết bị
+     * @param int $idcambien ID cảm biến
+     * @param mixed $giatri Giá trị vượt ngưỡng
+     * @param string $noidung Nội dung cảnh báo
+     * @param string $mucdo danger | warning
+     */
+    public function themCanhBaoFull($idthietbi, $idcambien, $giatri, $noidung, $mucdo)
+    {
+        $sql = "INSERT INTO {$this->table}
+                (idthietbi, idcambien, giatri, noidung, mucdo, trangthai, thoigian)
+                VALUES
+                (:idthietbi, :idcambien, :giatri, :noidung, :mucdo, 0, NOW())";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([
+            ':idthietbi' => $idthietbi,
+            ':idcambien' => $idcambien,
+            ':giatri'    => $giatri,
+            ':noidung'   => $noidung,
+            ':mucdo'     => $mucdo
+        ]);
+    }
+
     public function themCanhBao($id_cambien, $giatri, $noidung, $mucdo)
     {
         $sql = "INSERT INTO {$this->table}
-                (id_cambien, giatri, noidung, mucdo, trangthai, thoigian)
+                (idcambien, giatri, noidung, mucdo, trangthai, thoigian)
                 VALUES
-                (:id_cambien, :giatri, :noidung, :mucdo, 'MOI', NOW())";
-
+                (:idcambien, :giatri, :noidung, :mucdo, 0, NOW())";
         $stmt = $this->conn->prepare($sql);
-
         return $stmt->execute([
-            ':id_cambien' => $id_cambien,
-            ':giatri'     => $giatri,
-            ':noidung'    => $noidung,
-            ':mucdo'      => $mucdo
+            ':idcambien' => $id_cambien,
+            ':giatri'    => $giatri,
+            ':noidung'   => $noidung,
+            ':mucdo'     => $mucdo
         ]);
     }
 
@@ -30,7 +52,7 @@ class CanhBao
     {
         $sql = "SELECT *
                 FROM {$this->table}
-                WHERE trangthai = 'MOI'
+                WHERE trangthai = 0
                 ORDER BY thoigian DESC";
 
         $stmt = $this->conn->prepare($sql);
@@ -43,11 +65,11 @@ class CanhBao
     {
         $sql = "SELECT *
                 FROM {$this->table}
-                WHERE id_cambien = :id_cambien
+                WHERE idcambien = :idcambien
                 ORDER BY thoigian DESC";
 
         $stmt = $this->conn->prepare($sql);
-        $stmt->bindParam(':id_cambien', $id_cambien);
+        $stmt->bindParam(':idcambien', $id_cambien);
         $stmt->execute();
 
         return $stmt;

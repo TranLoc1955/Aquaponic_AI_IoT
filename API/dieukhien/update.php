@@ -15,7 +15,6 @@ try {
     }
 
     // DANH SÁCH CỘT ĐƯỢC PHÉP SỬA (Bảo mật)
-    // Chỉ cho phép sửa 3 cột này, tránh hack sửa cột lung tung
     $allowed_fields = ['maybom', 'denled', 'quatgio'];
     
     if (!in_array($data->field, $allowed_fields)) {
@@ -35,17 +34,22 @@ try {
 
     $column_name = $data->field; 
     
-    // Dùng INSERT...ON DUPLICATE KEY UPDATE để tự tạo row nếu chưa có
-    // Giả sử bảng dieukhien có UNIQUE KEY trên cột idthietbi
-    $query = "INSERT INTO dieukhien (idthietbi, $column_name, thoigian) 
-              VALUES (:did, :val, NOW())
-              ON DUPLICATE KEY UPDATE $column_name = :val2, thoigian = NOW()";
-    $stmt_upd = $db->prepare($query);
-    $stmt_upd->execute([
-        ':did'  => $device_id,
-        ':val'  => $data->value,
-        ':val2' => $data->value
-    ]);
+    // Kiểm tra xem đã có dòng nào trong bảng dieukhien cho thiết bị này chưa
+    $stmt_check = $db->prepare("SELECT id FROM dieukhien WHERE idthietbi = :did LIMIT 1");
+    $stmt_check->execute([':did' => $device_id]);
+    $existing = $stmt_check->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing) {
+        // Đã có dòng 
+        $query = "UPDATE dieukhien SET $column_name = :val, thoigian = NOW() WHERE idthietbi = :did";
+        $stmt_upd = $db->prepare($query);
+        $stmt_upd->execute([':val' => $data->value, ':did' => $device_id]);
+    } else {
+        // Chưa có dòng
+        $query = "INSERT INTO dieukhien (idthietbi, $column_name, thoigian) VALUES (:did, :val, NOW())";
+        $stmt_upd = $db->prepare($query);
+        $stmt_upd->execute([':did' => $device_id, ':val' => $data->value]);
+    }
 
     
     $map_name = [

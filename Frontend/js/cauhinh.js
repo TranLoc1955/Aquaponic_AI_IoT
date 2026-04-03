@@ -69,13 +69,13 @@ function renderForm(configs) {
                 <div class="input-field">
                     <label class="input-label">Cảnh báo khi > (Max)</label>
                     <input type="number" step="0.1" class="input-max" 
-                        placeholder="Không giới hạn" value="${cfg.nguong_tren !== null ? cfg.nguong_tren : ''}" oninput="activeCard('${cfg.id}')">
+                        placeholder="Không giới hạn" value="${(cfg.nguongtren != null && cfg.nguongtren !== '') ? cfg.nguongtren : ''}" oninput="activeCard('${cfg.id}')">
                 </div>
 
                 <div class="input-field">
                     <label class="input-label">Cảnh báo khi < (Min)</label>
                     <input type="number" step="0.1" class="input-min" 
-                        placeholder="Không giới hạn" value="${cfg.nguong_duoi !== null ? cfg.nguong_duoi : ''}" oninput="activeCard('${cfg.id}')">
+                        placeholder="Không giới hạn" value="${(cfg.nguongduoi != null && cfg.nguongduoi !== '') ? cfg.nguongduoi : ''}" oninput="activeCard('${cfg.id}')">
                 </div>
             </div>
 
@@ -140,8 +140,8 @@ async function saveConfig() {
 
         dataToSave.push({
             id: id,
-            nguong_tren: max,
-            nguong_duoi: min,
+            nguongtren: max,
+            nguongduoi: min,
             trangthai: status
         });
     });

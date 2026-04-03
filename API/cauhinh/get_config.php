@@ -22,7 +22,7 @@ try {
 
     $query = "SELECT ch.*, cb.loaicambien, cb.donvido 
               FROM cauhinh_canhbao ch
-              JOIN cambien cb ON ch.idcambien = cb.idcambien
+              LEFT JOIN cambien cb ON ch.idcambien = cb.idcambien AND ch.idthietbi = cb.idthietbi
               WHERE ch.idthietbi = :did 
               ORDER BY ch.idcambien ASC";
     
@@ -38,9 +38,17 @@ try {
             $stmt_ins->execute([$device_id, $id_cam]);
         }
         
-        echo file_get_contents("http://localhost/Test/API/cauhinh/get_config.php?user_id=" . $user_id);
-        exit();
+        $stmt->execute([':did' => $device_id]);
+        $configs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    foreach ($configs as &$c) {
+        $c['nguongtren'] = isset($c['nguongtren']) ? $c['nguongtren'] : (isset($c['nguong_tren']) ? $c['nguong_tren'] : null);
+        $c['nguongduoi'] = isset($c['nguongduoi']) ? $c['nguongduoi'] : (isset($c['nguong_duoi']) ? $c['nguong_duoi'] : null);
+        if (!isset($c['donvido']) || $c['donvido'] === null) $c['donvido'] = '';
+        if (!isset($c['loaicambien']) || $c['loaicambien'] === null) $c['loaicambien'] = '';
+    }
+    unset($c);
 
     echo json_encode(["status" => "success", "data" => $configs]);
 

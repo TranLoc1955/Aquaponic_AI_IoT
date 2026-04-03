@@ -6,19 +6,19 @@ let currentSensor = {};
 const SENSOR_CONFIG = {
     1: {
         label: 'Nhiệt độ', color: '#fb923c', unit: '°C',
-        min: 10, max: 35, step: 5
+        min: 15, max: 45, step: 10
     },
     2: {
         label: 'Độ ẩm', color: '#3b82f6', unit: '%',
-        min: 40, max: 80, step: 15
+        min: 40, max: 80, step: 10
     },
     3: {
         label: 'Mức nước', color: '#a855f7', unit: '',
-        min: 200, max: 500, step: 50
+        min: 0, max: 2200, step: 440
     },
     4: {
         label: 'Ánh sáng', color: '#eab308', unit: '',
-        min: 10000, max: 20000, step: 2500
+        min: 0, max: 10000, step: 2500
     }
 };
 

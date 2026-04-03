@@ -9,33 +9,48 @@ function startClock() {
     setInterval(tick, 1000);
 }
 
-// ----- BADGE (đếm chưa đọc) -----
+// ----- BADGE (số thông báo chưa đọc – chuông màu đỏ) -----
+function setBadgeVisible(badge, unread) {
+    if (!badge) return;
+    const n = parseInt(unread, 10) || 0;
+    badge.textContent = n > 9 ? '9+' : (n > 0 ? String(n) : '');
+    badge.classList.toggle('has-notif', n > 0);
+    badge.style.display = n > 0 ? 'flex' : 'none';
+    badge.style.visibility = n > 0 ? 'visible' : 'hidden';
+}
+
 async function loadNotifBadge() {
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
     try {
         const userRaw = localStorage.getItem('user_info');
-        if (!userRaw) return;
+        if (!userRaw) {
+            setBadgeVisible(badge, 0);
+            return;
+        }
         const user = JSON.parse(userRaw);
         const userId = user.id || user.id_nguoidung;
-        if (!userId) return;
+        if (!userId) {
+            setBadgeVisible(badge, 0);
+            return;
+        }
 
-        const res = await fetch(`${API_BASE}/canhbao/list.php?user_id=${userId}&limit=50`);
+        const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : 'http://localhost/Test/API').replace(/\/$/, '');
+        const res = await fetch(apiBase + '/canhbao/get_canhbao.php?user_id=' + encodeURIComponent(userId));
         const json = await res.json();
 
-        if (json.status === 'success' && json.data) {
-            const unread = json.data.filter(i => !i.da_doc).length;
-            const badge = document.getElementById('notif-badge');
-            if (badge) {
-                badge.innerText = unread > 9 ? '9+' : unread;
-                unread > 0 ? badge.classList.add('has-notif') : badge.classList.remove('has-notif');
-            }
+        if (json.status === 'success') {
+            setBadgeVisible(badge, json.unread);
+        } else {
+            setBadgeVisible(badge, 0);
         }
     } catch (e) {
-        // API chưa sẵn sàng
+        setBadgeVisible(badge, 0);
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     startClock();
     loadNotifBadge();
-    setInterval(loadNotifBadge, 60000);
+    setInterval(loadNotifBadge, 15000);
 });

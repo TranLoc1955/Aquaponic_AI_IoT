@@ -15,7 +15,8 @@ try {
     $json = file_get_contents("php://input");
     $data = json_decode($json, true);
     
-    if (!$data || !isset($data['idcanhbao'])) {
+    $id_canhbao = isset($data['id_canhbao']) ? $data['id_canhbao'] : (isset($data['idcanhbao']) ? $data['idcanhbao'] : null);
+    if (!$data || $id_canhbao === null) {
         echo json_encode([
             "status" => "error", 
             "message" => "Thiếu ID cảnh báo"
@@ -26,12 +27,11 @@ try {
     $database = new Database();
     $db = $database->connect();
     
-    $idcanhbao = intval($data['idcanhbao']);
-    
+    $id_canhbao = intval($id_canhbao);
 
-    $stmt = $db->prepare("DELETE FROM canhbao WHERE idcanhbao = ?");
+    $stmt = $db->prepare("DELETE FROM canhbao WHERE id_canhbao = ?");
     
-    if ($stmt->execute([$idcanhbao])) {
+    if ($stmt->execute([$id_canhbao])) {
         echo json_encode([
             "status" => "success",
             "message" => "Đã xóa cảnh báo thành công"

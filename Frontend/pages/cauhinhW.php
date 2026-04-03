@@ -43,7 +43,7 @@
                 
                 <div class="save-bar">
                     <button onclick="saveConfig()" class="save-button">
-                        <span class="material-symbols-outlined">backup</span> Lưu thay đổi
+                        <span class="material-symbols-outlined">upload_2</span> Lưu thay đổi
                     </button>
                 </div>
                 <div id="config-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
