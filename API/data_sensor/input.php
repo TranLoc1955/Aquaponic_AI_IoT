@@ -59,10 +59,10 @@ try {
 }
 
 $valuesBySensor = [
-    1 => isset($data->nhietdo) ? (float) $data->nhietdo : null,
+    1 => isset($data->nhiet_do) ? (float) $data->nhiet_do : null,
     2 => isset($data->do_am)  ? (float) $data->do_am  : null,
-    3 => isset($data->pH)     ? (float) $data->pH    : null,
-    4 => isset($data->anhsang) ? (float) $data->anhsang : null,
+    3 => isset($data->muc_nuoc)     ? (float) $data->muc_nuoc   : null,
+    4 => isset($data->anh_sang) ? (float) $data->anh_sang : null,
 ];
 
 try {

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test luồng IoT: Đẩy JSON → Lưu → So sánh → Thông báo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #0f1419; color: #e6edf3; }
+        h1 { font-size: 1.35rem; color: #58a6ff; margin-bottom: 8px; }
+        .subtitle { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
+        .flow-diagram { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 13px; line-height: 1.6; }
+        .flow-diagram .step { display: inline-block; margin: 0 4px; padding: 4px 10px; border-radius: 6px; }
+        .flow-diagram .s1 { background: #238636; color: #fff; }
+        .flow-diagram .s2 { background: #1f6feb; color: #fff; }
+        .flow-diagram .s3 { background: #8957e5; color: #fff; }
+        .flow-diagram .s4 { background: #d29922; color: #000; }
+        .flow-diagram .arrow { color: #8b949e; margin: 0 4px; }
+        section { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        section h2 { font-size: 1rem; color: #58a6ff; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+        section h2 .num { width: 28px; height: 28px; background: #238636; color: #fff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+        label { display: block; color: #8b949e; font-size: 13px; margin-bottom: 6px; }
+        input, textarea, button { font-family: inherit; }
+        input[type="number"], input[type="text"] { width: 140px; padding: 8px 12px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; margin-right: 12px; margin-bottom: 10px; }
+        textarea { width: 100%; min-height: 140px; padding: 12px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; font-size: 13px; resize: vertical; }
+        button { padding: 10px 18px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 14px; }
+        button.primary { background: #238636; color: #fff; }
+        button.primary:hover { background: #2ea043; }
+        button.secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+        button.secondary:hover { background: #30363d; }
+        button.run-full { background: #1f6feb; color: #fff; }
+        button.run-full:hover { background: #388bfd; }
+        .out { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-top: 12px; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 220px; overflow-y: auto; }
+        .out.ok { border-color: #238636; color: #7ee787; }
+        .out.err { border-color: #f85149; color: #f85149; }
+        .out.pending { color: #8b949e; }
+        .mb { margin-bottom: 14px; }
+        .flex { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge.post { background: #238636; color: #fff; }
+        .badge.get { background: #1f6feb; color: #fff; }
+    </style>
+</head>
+<body>
+    <h1>📡 Test luồng IoT → Web (từng bước)</h1>
+    <p class="subtitle">Mô phỏng thiết bị IoT đẩy JSON lên server → server lưu, so sánh ngưỡng, tạo cảnh báo → web nhận và hiển thị.</p>
+
+    <div class="flow-diagram">
+        <span class="step s1">IoT gửi JSON</span><span class="arrow">→</span>
+        <span class="step s2">API nhận & lưu dulieucambien</span><span class="arrow">→</span>
+        <span class="step s3">So sánh ngưỡng → tạo canhbao (nếu vượt)</span><span class="arrow">→</span>
+        <span class="step s4">Web gọi API → hiển thị dữ liệu & thông báo</span>
+    </div>
+
+    <section>
+        <h2><span class="num">0</span> Thông tin kết nối</h2>
+        <div class="mb">
+            <label>Base URL API</label>
+            <input type="text" id="baseUrl" value="http://localhost/Test/API">
+        </div>
+        <div class="flex">
+            <div class="mb">
+                <label>User ID (id người dùng)</label>
+                <input type="number" id="userId" placeholder="1" value="1">
+            </div>
+            <div class="mb">
+                <label>ID thiết bị (idthietbi)</label>
+                <input type="number" id="deviceId" placeholder="1" value="1">
+            </div>
+            <button type="button" class="secondary" onclick="fillDeviceFromConfig()">Lấy id thiết bị từ config</button>
+        </div>
+    </section>
+
+    <section>
+        <h2><span class="num">1</span> IoT đẩy dữ liệu (JSON) – như thiết bị gửi lên</h2>
+        <p style="color:#8b949e; font-size:13px; margin-bottom:10px;">Chỉnh JSON bên dưới giống payload IoT gửi. Trường <code>id</code> = idthietbi thiết bị. Sau đó bấm "Gửi như IoT".</p>
+        <textarea id="payload" spellcheck="false">{
+  "id": 1,
+  "nhietdo": 40,
+  "do_am": 65,
+  "pH": 6.2,
+  "anhsang": 320
+}</textarea>
+        <div class="flex" style="margin-top:12px;">
+            <button type="button" class="primary" onclick="step1Send()"><span class="badge post">POST</span> Gửi như IoT (input.php)</button>
+            <button type="button" class="secondary" onclick="setPayloadNormal()">Mẫu bình thường (25°C)</button>
+            <button type="button" class="secondary" onclick="setPayloadHigh()">Mẫu vượt ngưỡng trên (40°C)</button>
+            <button type="button" class="secondary" onclick="setPayloadLow()">Mẫu dưới ngưỡng dưới (10°C)</button>
+        </div>
+        <div id="out1" class="out pending">(chưa gửi)</div>
+    </section>
+
+    <section>
+        <h2><span class="num">2</span> Server đã nhận → Lưu vào <code>dulieucambien</code> & so sánh ngưỡng → Tạo <code>canhbao</code> nếu vượt</h2>
+        <p style="color:#8b949e; font-size:13px; margin-bottom:10px;">Kết quả bước 1 chính là response của server: đã lưu và (nếu có) đã tạo cảnh báo. Nếu thấy <code>"status": "success"</code> là ổn.</p>
+        <div id="out2" class="out pending">Chạy Bước 1 trước, kết quả sẽ hiển thị ở Bước 1 và được tóm tắt ở đây.</div>
+    </section>
+
+    <section>
+        <h2><span class="num">3</span> Web lấy dữ liệu đã lưu (như Dashboard tổng quan)</h2>
+        <p style="color:#8b949e; font-size:13px; margin-bottom:10px;">Gọi API tổng quan để xem dữ liệu cảm biến mới nhất đã lưu (nhiệt độ, độ ẩm, pH, ánh sáng).</p>
+        <button type="button" class="primary" onclick="step3Tongquat()"><span class="badge get">GET</span> Lấy dữ liệu hiển thị (tongquat.php)</button>
+        <div id="out3" class="out pending">(chưa gọi)</div>
+    </section>
+
+    <section>
+        <h2><span class="num">4</span> Web lấy thông báo cảnh báo (như chuông thông báo)</h2>
+        <p style="color:#8b949e; font-size:13px; margin-bottom:10px;">Gọi API cảnh báo để xem danh sách thông báo (đã tạo ở bước 1 nếu giá trị vượt ngưỡng).</p>
+        <button type="button" class="primary" onclick="step4Alerts()"><span class="badge get">GET</span> Lấy danh sách cảnh báo (get_canhbao.php)</button>
+        <div id="out4" class="out pending">(chưa gọi)</div>
+    </section>
+
+    <section>
+        <h2>Chạy full luồng (1 → 3 → 4)</h2>
+        <p style="color:#8b949e; font-size:13px; margin-bottom:10px;">Gửi JSON như IoT → Sau đó lấy dữ liệu hiển thị và lấy cảnh báo (giống web thật).</p>
+        <button type="button" class="run-full" onclick="runFullFlow()">Chạy full: IoT đẩy → Web nhận & hiển thị & thông báo</button>
+    </section>
+
+    <script>
+        const base = () => document.getElementById('baseUrl').value.replace(/\/$/, '');
+        const userId = () => document.getElementById('userId').value.trim();
+        const deviceId = () => document.getElementById('deviceId').value.trim();
+
+        function out(id, text, status) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = 'out ' + (status === true ? 'ok' : status === false ? 'err' : 'pending');
+        }
+
+        function setPayloadNormal() {
+            document.getElementById('payload').value = `{
+  "id": ${deviceId() || 1},
+  "nhietdo": 25,
+  "do_am": 60,
+  "pH": 6,
+  "anhsang": 200
+}`;
+        }
+        function setPayloadHigh() {
+            document.getElementById('payload').value = `{
+  "id": ${deviceId() || 1},
+  "nhietdo": 40,
+  "do_am": 65,
+  "pH": 6.2,
+  "anhsang": 320
+}`;
+        }
+        function setPayloadLow() {
+            document.getElementById('payload').value = `{
+  "id": ${deviceId() || 1},
+  "nhietdo": 10,
+  "do_am": 50,
+  "pH": 5.5,
+  "anhsang": 100
+}`;
+        }
+
+        async function fillDeviceFromConfig() {
+            const uid = userId();
+            if (!uid) { alert('Nhập User ID trước.'); return; }
+            try {
+                const r = await fetch(`${base()}/cauhinh/get_config.php?user_id=${uid}`);
+                const j = await r.json();
+                if (j.status === 'success' && j.data && j.data[0] && j.data[0].idthietbi != null) {
+                    document.getElementById('deviceId').value = j.data[0].idthietbi;
+                    alert('Đã điền ID thiết bị = ' + j.data[0].idthietbi);
+                } else {
+                    alert('Không lấy được id thiết bị. Kiểm tra User ID hoặc chưa có cấu hình.');
+                }
+            } catch (e) {
+                alert('Lỗi: ' + e.message);
+            }
+        }
+
+        async function step1Send() {
+            const raw = document.getElementById('payload').value.trim();
+            let body;
+            try {
+                body = JSON.parse(raw);
+            } catch (e) {
+                out('out1', 'JSON không hợp lệ: ' + e.message, false);
+                return;
+            }
+            if (!body.id && body.idthietbi == null) {
+                body.id = parseInt(deviceId(), 10) || 1;
+            }
+            out('out1', 'Đang gửi...', 'pending');
+            try {
+                const r = await fetch(`${base()}/data_sensor/input.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const j = await r.json().catch(() => ({ status: 'error', message: 'Response không phải JSON' }));
+                const str = JSON.stringify(j, null, 2);
+                out('out1', str, j.status === 'success');
+                out('out2', 'Kết quả từ server:\n' + str + '\n\n→ Dữ liệu đã lưu vào dulieucambien. Nếu vượt ngưỡng đã cấu hình thì đã tạo bản ghi trong canhbao.', j.status === 'success');
+            } catch (e) {
+                out('out1', 'Lỗi: ' + e.message, false);
+                out('out2', 'Lỗi kết nối: ' + e.message, false);
+            }
+        }
+
+        async function step3Tongquat() {
+            const uid = userId();
+            if (!uid) { out('out3', 'Nhập User ID.', false); return; }
+            out('out3', 'Đang tải...', 'pending');
+            try {
+                const r = await fetch(`${base()}/dashboard/tongquat.php?user_id=${uid}`);
+                const j = await r.json();
+                const str = JSON.stringify(j, null, 2);
+                out('out3', str, j.status === 'success');
+            } catch (e) {
+                out('out3', 'Lỗi: ' + e.message, false);
+            }
+        }
+
+        async function step4Alerts() {
+            const uid = userId();
+            if (!uid) { out('out4', 'Nhập User ID.', false); return; }
+            out('out4', 'Đang tải...', 'pending');
+            try {
+                const r = await fetch(`${base()}/canhbao/get_canhbao.php?user_id=${uid}`);
+                const j = await r.json();
+                const str = JSON.stringify(j, null, 2);
+                out('out4', str, j.status === 'success');
+            } catch (e) {
+                out('out4', 'Lỗi: ' + e.message, false);
+            }
+        }
+
+        async function runFullFlow() {
+            const uid = userId();
+            if (!uid) { alert('Nhập User ID.'); return; }
+            const raw = document.getElementById('payload').value.trim();
+            let body;
+            try {
+                body = JSON.parse(raw);
+            } catch (e) {
+                alert('JSON không hợp lệ: ' + e.message);
+                return;
+            }
+            if (!body.id && body.idthietbi == null) body.id = parseInt(deviceId(), 10) || 1;
+
+            out('out1', 'Full luồng: Đang gửi như IoT...', 'pending');
+            try {
+                const r1 = await fetch(`${base()}/data_sensor/input.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const j1 = await r1.json().catch(() => ({}));
+                out('out1', JSON.stringify(j1, null, 2), j1.status === 'success');
+                out('out2', 'Bước 1 xong. ' + (j1.status === 'success' ? 'Đã lưu & so sánh ngưỡng.' : j1.message || ''), j1.status === 'success');
+
+                out('out3', 'Đang lấy dữ liệu hiển thị...', 'pending');
+                const r2 = await fetch(`${base()}/dashboard/tongquat.php?user_id=${uid}`);
+                const j2 = await r2.json();
+                out('out3', JSON.stringify(j2, null, 2), j2.status === 'success');
+
+                out('out4', 'Đang lấy cảnh báo...', 'pending');
+                const r3 = await fetch(`${base()}/canhbao/get_canhbao.php?user_id=${uid}`);
+                const j3 = await r3.json();
+                out('out4', JSON.stringify(j3, null, 2), j3.status === 'success');
+            } catch (e) {
+                out('out1', 'Lỗi: ' + e.message, false);
+                out('out2', 'Lỗi: ' + e.message, false);
+                out('out3', 'Lỗi: ' + e.message, false);
+                out('out4', 'Lỗi: ' + e.message, false);
+            }
+        }
+    </script>
+</body>
+</html>

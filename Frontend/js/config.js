@@ -28,8 +28,7 @@ const API = {
     CONFIG_GET: API_BASE + '/cauhinh/get_config.php',
     CONFIG_SAVE: API_BASE + '/cauhinh/save_config.php'
 };
-
-// Polling Intervals (milliseconds)
+// Intervals
 const INTERVALS = {
     SENSOR_DATA: 5000,      // 5 seconds
     NOTIFICATIONS: 10000,   // 10 seconds
@@ -63,7 +62,7 @@ const SENSOR_CONFIG = {
         step: 5
     },
     3: {
-        label: 'Độ pH',
+        label: 'Mức nước',
         color: '#a855f7',
         unit: '',
         min: 4,
@@ -78,4 +77,17 @@ const SENSOR_CONFIG = {
         max: 20000,
         step: 2500
     }
+};
+const MQTT_CONFIG = {
+    host: '56865ed923c247919013bdef6430f5c6.s1.eu.hivemq.cloud',
+    username: 'esp32_user',
+    password: '123456Esp32@',
+    clientId: 'hydrosmart_web_' + Math.random().toString(16).substr(2, 8)
+};
+
+const MQTT_TOPICS = {
+    SENSOR_ALL:   'aquaponic/sensor/data',  
+    DEVICE_PUMP:  'aquaponic/device/maybom',
+    DEVICE_LIGHT: 'aquaponic/device/denled',
+    DEVICE_FAN:   'aquaponic/device/quatgio',
 };

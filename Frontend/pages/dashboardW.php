@@ -7,7 +7,6 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-    
     <link rel="stylesheet" href="../css/reset.css">
     <link rel="stylesheet" href="../css/variables.css">
     <link rel="stylesheet" href="../css/layout.css">
@@ -169,9 +168,11 @@ missing_controller
 
     <!-- JavaScript -->
     <script src="../js/auth.js"></script>
-    <script src="../js/config.js"></script>
     <script src="../js/utils.js"></script>
     <script src="../js/notification.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/mqtt.js"></script>
     <script>
 
         // Get User ID
@@ -231,52 +232,64 @@ missing_controller
 
         // Toggle Device
         async function toggleDevice(field, idBox) {
-            const userId = getUserId();
-            if (!userId) {
-                alert("Phiên đăng nhập hết hạn!");
-                return;
-            }
+    const userId = getUserId();
+    if (!userId) { alert('Phiên đăng nhập hết hạn!'); return; }
 
-            const checkbox = document.getElementById(idBox);
-            const val = checkbox.checked ? 1 : 0;
-            
-            checkbox.disabled = true;
+    const checkbox = document.getElementById(idBox);
+    const val = checkbox.checked ? 1 : 0;
+    checkbox.disabled = true;
 
-            try {
-                const res = await fetch(`${API_BASE}/dieukhien/update.php`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ field: field, value: val, user_id: userId })
-                });
-                const data = await res.json();
-                
-                if(data.status !== 'success') {
-                    alert('Lỗi: ' + data.message);
-                    checkbox.checked = !checkbox.checked;
-                } else {
-                    updateSwitch(idBox, idBox.replace('sw-', 'txt-'), val);
-                }
-            } catch(e) {
-                console.error(e);
-                checkbox.checked = !checkbox.checked;
-            } finally {
-                checkbox.disabled = false;
-            }
+    try {
+        // Gửi lệnh qua MQTT đến firmware
+        mqttPublishControl(field, val);
+
+        // Ghi log vào DB (giữ nguyên)
+        const res = await fetch(`${API_BASE}/dieukhien/update.php`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ field, value: val, user_id: userId })
+        });
+        const data = await res.json();
+
+        if (data.status !== 'success') {
+            alert('Lỗi: ' + data.message);
+            checkbox.checked = !checkbox.checked;
+        } else {
+            updateSwitch(idBox, idBox.replace('sw-', 'txt-'), val);
         }
+    } catch(e) {
+        console.error(e);
+        checkbox.checked = !checkbox.checked;
+    } finally {
+        checkbox.disabled = false;
+    }
+}
 
         // Logout
         function logout() {
             localStorage.clear();
             window.location.href = 'login.php';
         }
+        async function loadDeviceId() {
+    const userId = getUserId();
+    if (!userId) return;
+    try {
+        const res = await fetch(`${API_BASE}/dashboard/tongquat.php?user_id=${userId}`);
+        const json = await res.json();
+        if (json.status === 'success') {
+            window.cachedDeviceId = json.data.device_id;
+            console.log('📦 Device ID:', window.cachedDeviceId);
+        }
+    } catch (e) {
+        console.error('Lỗi lấy device ID:', e);
+    }
+}
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            // Auth is handled by auth.js
-
-            loadData();
-            setInterval(loadData, 3000); // Poll every 5 seconds
-        });
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadDeviceId();
+    connectMQTT();
+    loadData();
+});
     </script>
 </body>
 </html>
