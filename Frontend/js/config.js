@@ -86,8 +86,7 @@ const MQTT_CONFIG = {
 };
 
 const MQTT_TOPICS = {
-    SENSOR_ALL:   'aquaponic/sensor/data',  
-    DEVICE_PUMP:  'aquaponic/device/maybom',
-    DEVICE_LIGHT: 'aquaponic/device/denled',
-    DEVICE_FAN:   'aquaponic/device/quatgio',
+    SENSOR_ALL:   'aquaponic/sensor/data',
+    DEVICE_STATUD: 'aquaponic/device/status',
+    DEVICE_CONTROL: 'aquaponic/control'
 };

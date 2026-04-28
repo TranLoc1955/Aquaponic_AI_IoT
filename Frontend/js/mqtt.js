@@ -50,17 +50,37 @@ mqttClient.on('message', async (topic, payload) => {
         }
     }
         // Cập nhật trạng thái thiết bị
-    if (topic.includes('/device/') && topic.endsWith('/status')) {
-        const device = topic.split('/')[2];
-        const swMap = {
-            maybom:  { sw: 'sw-pump',  txt: 'txt-pump' },
-            denled:  { sw: 'sw-light', txt: 'txt-light' },
-            quatgio: { sw: 'sw-fan',   txt: 'txt-fan' },
-        };
-        if (swMap[device]) {
-            updateSwitch(swMap[device].sw, swMap[device].txt, value);
+    if (topic === 'aquaponic/device/status') {
+    try {
+        const data = JSON.parse(value);
+
+        // Cập nhật UI
+        if (data.maybom !== undefined)  updateSwitch('sw-pump',  'txt-pump',  data.maybom);
+        if (data.denled !== undefined)   updateSwitch('sw-light', 'txt-light', data.denled);
+        if (data.quatgio !== undefined)  updateSwitch('sw-fan',   'txt-fan',   data.quatgio);
+
+        // Lưu DB
+        const userId = getUserId();
+        const fields = ['maybom', 'denled', 'quatgio'];
+        for (const field of fields) {
+            if (data[field] !== undefined) {
+                await fetch(`${API_BASE}/dieukhien/update.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        field: field,
+                        value: parseInt(data[field]),
+                        user_id: userId
+                    })
+                });
+            }
         }
+        console.log('💾 Lưu trạng thái thiết bị xong');
+
+    } catch(e) {
+        console.error('Lỗi xử lý device status:', e);
     }
+}
 });
 
     mqttClient.on('error', (err) => console.log('❌ Lỗi MQTT:', err));
@@ -103,9 +123,9 @@ async function saveToDatabase(topic, value) {
 
 function mqttPublishControl(device, value) {
     if (mqttClient && mqttClient.connected) {
-        const topic = `aquaponic/device/${device}/control`;
-        mqttClient.publish(topic, String(value), { qos: 1 });
-        console.log(`📤 Gửi lệnh: ${topic} -> ${value}`);
+        const payload = JSON.stringify({ [device]: parseInt(value) });
+        mqttClient.publish('aquaponic/control', payload, { qos: 1 });
+        console.log(`📤 Gửi lệnh: aquaponic/control ->`, payload);
     } else {
         console.warn('MQTT chưa kết nối, không gửi được lệnh');
     }
