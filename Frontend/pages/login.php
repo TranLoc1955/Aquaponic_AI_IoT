@@ -4,149 +4,152 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Đăng nhập / Đăng ký - Aquaponic AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
     <link href="../css/login.css" rel="stylesheet"/>
 </head>
 <body>
     <div class="app-wrapper">
-        
-        <header class="login-header">
-            <div class="logo-container">
-                <div class="logo-icon">
-                    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                        <path clip-rule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor" fill-rule="evenodd"></path>
-                    </svg>
-                </div>
-                <h1 class="logo-title">Aquaponic  AIoT</h1>
-            </div>
-        </header>
 
         <main class="login-main">
-            
-            <div class="login-hero">
-                <div class="hero-overlay"></div>
-                <div class="hero-content">
-                    <div class="hero-icon">
-       <span class="material-symbols-outlined">
-potted_plant
-</span>
-                    </div>
-                    <h1 class="hero-title">Giải pháp Thủy canh thông minh</h1>
-                    <p class="hero-description">
-                        Hệ thống IoT và AI tiên tiến giúp quản lý vườn rau sạch tại đô thị cho người không chuyên.
-                    </p>
+            <div class="login-card">
+                <div class="status-dot" style="justify-content:center;">
+                    <span class="dot"></span>
+                    <span>Hệ thống đang hoạt động</span>
                 </div>
-            </div>
 
-            <!-- Right Side - Form -->
-            <div class="login-form-container">
-                <div class="form-wrapper">
-                    <div class="form-header">
-                        <h2 class="form-title">Xin chào !</h2>
-                        <p class="form-subtitle">Cùng kiểm tra hệ thống thủy canh của bạn hôm nay ngay nào.</p>
+                <div class="form-header">
+                    <div class="forgot-icon">
+                        <span class="material-symbols-outlined">potted_plant</span>
+                    </div>
+                    <h2 class="form-title">Xin chào !</h2>
+                    <p class="form-subtitle">Cùng kiểm tra hệ thống thủy canh của bạn hôm nay ngay nào.</p>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs-container">
+                    <div class="tabs">
+                        <button id="tab-login" class="tab-item active">
+                            <span>Đăng nhập</span>
+                        </button>
+                        <button id="tab-register" class="tab-item">
+                            <span>Đăng ký</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Alert Message -->
+                <div id="alert-message" class="alert-box hidden">
+                    <div class="alert-content">
+                        <span class="material-symbols-outlined alert-icon"></span>
+                        <p class="alert-text"></p>
+                    </div>
+                </div>
+
+                <!-- Login Form -->
+                <form id="form-login" class="auth-form active">
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <div class="input-wrapper">
+                            <div class="input-icon">
+                                <span class="material-symbols-outlined">person</span>
+                            </div>
+                            <input id="login-email" class="form-input" placeholder="user@example.com" type="email" required/>
+                        </div>
                     </div>
 
-                    <!-- Tabs -->
-                    <div class="tabs-container">
-                        <div class="tabs">
-                            <button id="tab-login" class="tab-item active">
-                                <span>Đăng nhập</span>
-                                <span class="tab-indicator"></span>
-                            </button>
-                            <button id="tab-register" class="tab-item">
-                                <span>Đăng ký</span>
-                                <span class="tab-indicator"></span>
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label">Mật khẩu</label>
+                            <a href="forgot_password.php" class="forgot-link">Quên mật khẩu?</a>
+                        </div>
+                        <div class="input-wrapper">
+                            <div class="input-icon">
+                                <span class="material-symbols-outlined">lock</span>
+                            </div>
+                            <input id="login-password" class="form-input" placeholder="Nhập mật khẩu" type="password" required/>
+                            <button class="toggle-password" type="button">
+                                <span class="material-symbols-outlined">visibility_off</span>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Alert Message -->
-                    <div id="alert-message" class="alert-box hidden">
-                        <div class="alert-content">
-                            <span class="material-symbols-outlined alert-icon"></span>
-                            <p class="alert-text"></p>
-                        </div>
-                    </div>
+                    <button type="submit" class="btn-submit">
+                        <span class="btn-text">Đăng nhập </span>
+                        <span class="spinner hidden">
+                            <svg class="spinner-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                        <span class="material-symbols-outlined"> login</span>
+                    </button>
+                </form>
 
-                    <!-- Login Form -->
-                    <form id="form-login" class="auth-form active">
+<!-- Register Form -->
+                <form id="form-register" class="auth-form">
+                    <div class="form-grid">
                         <div class="form-group">
-                            <label class="form-label">Email</label>
+                            <label class="form-label">Họ tên</label>
                             <div class="input-wrapper">
                                 <div class="input-icon">
                                     <span class="material-symbols-outlined">person</span>
                                 </div>
-                                <input id="login-email" class="form-input" placeholder="user@example.com" type="email" required/>
+                                <input id="register-name" class="form-input" placeholder="Họ tên" type="text" required/>
                             </div>
-                        </div>
-
-                        <div class="form-group">
-                            <div class="label-row">
-                                <label class="form-label">Mật khẩu</label>
-                                <a href="forgot_password.php" class="forgot-link">Quên mật khẩu?</a>
-                            </div>
-                            <div class="input-wrapper">
-                                <div class="input-icon">
-                                    <span class="material-symbols-outlined">lock</span>
-                                </div>
-                                <input id="login-password" class="form-input" placeholder="Nhập mật khẩu" type="password" required/>
-                                <button class="toggle-password" type="button">
-                                    <span class="material-symbols-outlined">visibility_off</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn-submit">
-                            <span class="btn-text">Đăng nhập </span>
-                            <span class="spinner hidden">
-                                <svg class="spinner-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            </span>
-                            <span class="material-symbols-outlined"> login</span>
-                        </button>
-                    </form>
-
-                    <!-- Register Form -->
-                    <form id="form-register" class="auth-form">
-                        <div class="form-group">
-                            <label class="form-label">Họ tên</label>
-                            <input id="register-name" class="form-input" placeholder="Nguyễn Văn A" type="text" required/>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Email</label>
-                            <input id="register-email" class="form-input" placeholder="user@example.com" type="email" required/>
+                            <div class="input-wrapper">
+                                <div class="input-icon">
+                                    <span class="material-symbols-outlined">mail</span>
+                                </div>
+                                <input id="register-email" class="form-input" placeholder="Email" type="email" required/>
+                            </div>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Số điện thoại</label>
-                            <input id="register-phone" class="form-input" placeholder="0987654321" type="tel" pattern="[0-9]{10,11}"/>
+                            <div class="input-wrapper">
+                                <div class="input-icon">
+                                    <span class="material-symbols-outlined">phone</span>
+                                </div>
+                                <input id="register-phone" class="form-input" placeholder="SĐT" type="tel" pattern="[0-9]{10,11}"/>
+                            </div>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Mật khẩu</label>
-                            <input id="register-password" class="form-input" placeholder="Tối thiểu 6 ký tự" type="password" required/>
+                            <div class="input-wrapper">
+                                <div class="input-icon">
+                                    <span class="material-symbols-outlined">lock</span>
+                                </div>
+                                <input id="register-password" class="form-input" placeholder="Mật khẩu" type="password" required/>
+                            </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group form-group-full">
                             <label class="form-label">Xác nhận mật khẩu</label>
-                            <input id="register-confirm" class="form-input" placeholder="Nhập lại mật khẩu" type="password" required/>
+                            <div class="input-wrapper">
+                                <div class="input-icon">
+                                    <span class="material-symbols-outlined">lock_reset</span>
+                                </div>
+                                <input id="register-confirm" class="form-input" placeholder="Nhập lại mật khẩu" type="password" required/>
+                            </div>
                         </div>
+                    </div>
 
-                        <button type="submit" class="btn-submit">
-                            <span class="btn-text">Đăng ký</span>
-                            <span class="spinner hidden">
-                                <svg class="spinner-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            </span>
-                        </button>
-                    </form>
-                </div>
+                    <button type="submit" class="btn-submit">
+                        <span class="btn-text">Đăng ký</span>
+                        <span class="spinner hidden">
+                            <svg class="spinner-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </button>
+                </form>
             </div>
         </main>
     </div>

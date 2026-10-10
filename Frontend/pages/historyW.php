@@ -60,7 +60,7 @@
                         <div class="active-indicator temp-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(2, 'Độ ẩm', '#3b82f6', '%', 40, 80, 10)"
+                    <button onclick="changeSensor(2, 'Độ ẩm', '#3b82f6', '%', 20, 100, 10)"
                             id="tab-2" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon humidity material-symbols-outlined">water_drop</span>
@@ -71,7 +71,7 @@
                         <div class="active-indicator humidity-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(4, 'Ánh sáng', '#eab308', 'Lux', 0, 10000, 2500)"
+                    <button onclick="changeSensor(4, 'Ánh sáng', '#eab308', 'Lux', 0, 1500, 500)"
                             id="tab-4" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon light material-symbols-outlined">light_mode</span>
@@ -82,7 +82,7 @@
                         <div class="active-indicator light-bg"></div>
                     </button>
 
-                    <button onclick="changeSensor(3, 'Mực nước', '#a855f7', '', 0, 2200, 440)"
+                    <button onclick="changeSensor(3, 'Mực nước', '#a855f7', '', 0, 2500, 500)"
                             id="tab-3" class="sensor-tab">
                         <div class="tab-header">
                             <span class="tab-icon ph material-symbols-outlined">water</span>

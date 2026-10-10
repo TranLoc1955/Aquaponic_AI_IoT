@@ -7,7 +7,7 @@ potted_plant
         </div>
         <div class="logo-text">
             <h5>HỆ THỐNG THỦY CANH  - AQUAPONIC</h5>
-            <p style="font-size: 10px;">NCKH_WEB</p>
+            <p style="font-size: 10px;">NCKH_AIoT</p>
         </div>
     </div>
     

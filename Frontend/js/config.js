@@ -1,4 +1,3 @@
-
 const API_BASE = 'http://localhost/Test/API';
 
 const API = {
@@ -26,13 +25,16 @@ const API = {
     
     // Config
     CONFIG_GET: API_BASE + '/cauhinh/get_config.php',
-    CONFIG_SAVE: API_BASE + '/cauhinh/save_config.php'
+    CONFIG_SAVE: API_BASE + '/cauhinh/save_config.php',
+
+    // AI (Isolation Forest)
+    AI_HISTORY: API_BASE + '/ai/get_ai_history.php'
 };
 // Intervals
 const INTERVALS = {
-    SENSOR_DATA: 5000,      // 5 seconds
-    NOTIFICATIONS: 10000,   // 10 seconds
-    CONTROL_LOG: 8000       // 8 seconds
+    SENSOR_DATA: 5000,      // 5s
+    NOTIFICATIONS: 10000,   // 10s
+    CONTROL_LOG: 8000       // 8s
 };
 
 // Sensor IDs
@@ -87,6 +89,6 @@ const MQTT_CONFIG = {
 
 const MQTT_TOPICS = {
     SENSOR_ALL:   'aquaponic/sensor/data',
-    DEVICE_STATUD: 'aquaponic/device/status',
+    DEVICE_STATUS: 'aquaponic/device/status',
     DEVICE_CONTROL: 'aquaponic/control'
 };

@@ -100,7 +100,7 @@
                                 <div class="step-content">
                                     <h4 class="step-title">Điều khiển thiết bị </h4>
                                     <p class="step-text">
-                                        Sử dụng các nút bật/tắt trên Dashboard để điều khiển Máy bơm, Đèn và Phun sương.
+                                        Sử dụng các nút bật/tắt trên Dashboard để điều khiển Máy bơm, Đèn và Quạt gió.
                                         Trạng thái thiết bị được đồng bộ ngay lập tức với hệ thống.
                                     </p>
                                 </div>

@@ -14,6 +14,48 @@ function jsonErr($msg, $code = 400) {
     exit;
 }
 
+// Hàm gửi Telegram — lấy token/chatid từ DB
+function guiTelegram($db, $idthietbi, $idcambien, $message) {
+    $stmt = $db->prepare("SELECT id, bot_token, chat_id, last_sent FROM cauhinh_telegram WHERE idthietbi = ? AND trangthai = 1 LIMIT 1");
+    $stmt->execute([$idthietbi]);
+    $cfg = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$cfg) return;
+
+    // Kiểm tra 3 phút / cảm biến
+    $lastSent = json_decode($cfg['last_sent'], true) ?: [];
+    $key = "cb_{$idcambien}";
+    $now = time();
+
+    if (isset($lastSent[$key]) && ($now - $lastSent[$key]) < 180) {
+        return; 
+    }
+
+    // Gửi Telegram
+    $url  = "https://api.telegram.org/bot{$cfg['bot_token']}/sendMessage";
+    $data = http_build_query([
+        'chat_id'    => $cfg['chat_id'],
+        'text'       => $message,
+        'parse_mode' => 'HTML'
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $data,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 5,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_SSL_VERIFYPEER => false,
+    ]);
+    curl_exec($ch);
+    curl_close($ch);
+
+    // Cập nhật thời gian gửi cuối
+    $lastSent[$key] = $now;
+    $updateStmt = $db->prepare("UPDATE cauhinh_telegram SET last_sent = ? WHERE id = ?");
+    $updateStmt->execute([json_encode($lastSent), $cfg['id']]);
+}
+
 try {
     $database = new Database();
     $db = $database->connect();
@@ -32,19 +74,19 @@ if (!$data) {
 }
 
 if (!isset($data->id) && !isset($data->idthietbi)) {
-    jsonErr("Thiếu id (idthietbi) thiết bị. Gửi JSON có trường: id hoặc idthietbi (số).");
+    jsonErr("Thiếu id (idthietbi) thiết bị.");
 }
 
 $idthietbi = (int) (isset($data->id) ? $data->id : $data->idthietbi);
 if ($idthietbi <= 0) {
-    jsonErr("id thiết bị phải là số dương. Hiện tại: " . (isset($data->id) ? $data->id : $data->idthietbi));
+    jsonErr("id thiết bị phải là số dương.");
 }
 
 try {
     $check = $db->prepare("SELECT 1 FROM thietbi WHERE idthietbi = ? LIMIT 1");
     $check->execute([$idthietbi]);
     if (!$check->fetch()) {
-        jsonErr("Không tìm thấy thiết bị có idthietbi = {$idthietbi}. Kiểm tra bảng thietbi hoặc dùng id từ Bước 1 (data[].idthietbi).", 404);
+        jsonErr("Không tìm thấy thiết bị có idthietbi = {$idthietbi}.", 404);
     }
 } catch (Exception $e) {
     jsonErr("Lỗi kiểm tra thiết bị: " . $e->getMessage(), 500);
@@ -52,17 +94,17 @@ try {
 
 try {
     if (!$sensor->luuDuLieuTuDong($data)) {
-        jsonErr("Lỗi khi lưu dữ liệu cảm biến. Kiểm tra id (idthietbi) và các trường: nhietdo, do_am, pH, anhsang.", 503);
+        jsonErr("Lỗi khi lưu dữ liệu cảm biến.", 503);
     }
 } catch (Exception $e) {
-    jsonErr("Lỗi DB khi lưu dulieucambien: " . $e->getMessage() . ". Có thể idthietbi không tồn tại hoặc bảng dulieucambien thiếu cột/khớp khóa ngoại.", 500);
+    jsonErr("Lỗi DB khi lưu dulieucambien: " . $e->getMessage(), 500);
 }
 
 $valuesBySensor = [
-    1 => isset($data->nhiet_do) ? (float) $data->nhiet_do : null,
-    2 => isset($data->do_am)  ? (float) $data->do_am  : null,
-    3 => isset($data->muc_nuoc)     ? (float) $data->muc_nuoc   : null,
-    4 => isset($data->anh_sang) ? (float) $data->anh_sang : null,
+    1 => isset($data->nhiet_do)  ? (float) $data->nhiet_do  :  null,
+    2 => isset($data->do_am)    ? (float) $data->do_am    : null,
+    3 => isset($data->muc_nuoc) ? (float) $data->muc_nuoc : null,
+    4 => isset($data->anh_sang)  ? (float) $data->anh_sang  : null,
 ];
 
 try {
@@ -70,22 +112,33 @@ try {
     $stmt->execute([$idthietbi]);
     $configs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $tenCamBien = [
+        1 => 'Nhiệt độ',
+        2 => 'Độ ẩm',
+        3 => 'Mức nước',
+        4 => 'Ánh sáng'
+    ];
+
     foreach ($configs as $cfg) {
         $idcambien = (int) $cfg['idcambien'];
         $val = isset($valuesBySensor[$idcambien]) ? $valuesBySensor[$idcambien] : null;
         if ($val === null) continue;
 
-        $gt = isset($cfg['nguongtren']) ? $cfg['nguongtren'] : (isset($cfg['nguong_tren']) ? $cfg['nguong_tren'] : null);
-        $gd = isset($cfg['nguongduoi']) ? $cfg['nguongduoi'] : (isset($cfg['nguong_duoi']) ? $cfg['nguong_duoi'] : null);
-        $nguong_tren = ($gt !== null && $gt !== '') ? (float) $gt : null;
-        $nguong_duoi = ($gd !== null && $gd !== '') ? (float) $gd : null;
+        $ten = isset($tenCamBien[$idcambien]) ? $tenCamBien[$idcambien] : "Cảm biến $idcambien";
+        $nguong_tren = ($cfg['nguong_tren'] !== null && $cfg['nguong_tren'] !== '') ? (float)$cfg['nguong_tren'] : null;
+        $nguong_duoi = ($cfg['nguong_duoi'] !== null && $cfg['nguong_duoi'] !== '') ? (float)$cfg['nguong_duoi'] : null;
 
         if ($nguong_tren !== null && $val > $nguong_tren) {
-            $canhBao->themCanhBaoFull($idthietbi, $idcambien, $val, "Giá trị vượt ngưỡng trên ({$val} > {$nguong_tren})", 'danger');
-        }
-        if ($nguong_duoi !== null && $val < $nguong_duoi) {
-            $canhBao->themCanhBaoFull($idthietbi, $idcambien, $val, "Giá trị dưới ngưỡng dưới ({$val} < {$nguong_duoi})", 'warning');
-        }
+    $noidung = "⚠️ {$ten} đang quá cao: {$val} (ngưỡng tối đa: {$nguong_tren})";
+    $canhBao->themCanhBaoFull($idthietbi, $idcambien, $val, $noidung, 'danger');
+    guiTelegram($db, $idthietbi, $idcambien, "🔴 <b>HydroSmart Cảnh Báo</b>\n\n{$noidung}");
+}
+
+if ($nguong_duoi !== null && $val < $nguong_duoi) {
+    $noidung = "🔵 {$ten} đang quá thấp: {$val} (ngưỡng tối thiểu: {$nguong_duoi})";
+    $canhBao->themCanhBaoFull($idthietbi, $idcambien, $val, $noidung, 'warning');
+    guiTelegram($db, $idthietbi, $idcambien, "🟡 <b>HydroSmart Cảnh Báo</b>\n\n{$noidung}");
+}
     }
 
     http_response_code(200);

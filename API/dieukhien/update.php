@@ -14,7 +14,6 @@ try {
         throw new Exception("Thiếu dữ liệu đầu vào");
     }
 
-    // DANH SÁCH CỘT ĐƯỢC PHÉP SỬA (Bảo mật)
     $allowed_fields = ['maybom', 'denled', 'quatgio'];
     
     if (!in_array($data->field, $allowed_fields)) {

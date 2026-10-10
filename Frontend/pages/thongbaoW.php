@@ -83,6 +83,8 @@
         .nc-icon.danger   { background: #fde8e8; color: var(--danger); }
         .nc-icon.success  { background: #d1fae5; color: var(--success); }
         .nc-icon.info     { background: var(--primary-bg); color: var(--primary); }
+        .nc-icon.ai-action { background: #f5f3ff; color: #7c3aed; }
+        .nc-desc.ai-multiline { white-space: pre-line; }
 
         .nc-body { flex: 1; }
         .nc-title { font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--text-primary); margin-bottom: 4px; }
@@ -109,7 +111,7 @@
                 <span class="material-symbols-outlined">notifications</span>
                 Trung tâm thông báo
             </h2>
-            <button class="mark-all-btn" onclick="markAllRead()">
+            <button class="mark-all-btn" onclick="markAllReadCurrentTab()">
                 <span class="material-symbols-outlined" style="font-size:18px;">done_all</span>
                 Đánh dấu tất cả đã đọc
             </button>
@@ -121,6 +123,7 @@
                     <button class="notif-tab-btn active" onclick="filterNotif('all', this)">Tất cả</button>
                     <button class="notif-tab-btn" onclick="filterNotif('unread', this)">Chưa đọc</button>
                     <button class="notif-tab-btn" onclick="filterNotif('warning', this)">Cảnh báo</button>
+                    <button class="notif-tab-btn" onclick="filterNotif('ai', this)">Cảnh báo AI</button>
                 </div>
 
                 <div class="notif-card-list" id="notif-card-list">
@@ -151,81 +154,103 @@
 <script src="../js/config.js"></script>
 <script>
     let allNotifs    = [];
+    let allAiNotifs  = [];
     let currentFilter = 'all';
     let currentUserId = null;
 
-    const sensorMap = {
-        'nhiet do':  { icon: 'thermostat', cls: 'danger',  label: 'Nhiệt độ vượt ngưỡng' },
-        'nhiet_do':  { icon: 'thermostat', cls: 'danger',  label: 'Nhiệt độ vượt ngưỡng' },
-        'do am':     { icon: 'water_drop', cls: 'info',    label: 'Độ ẩm bất thường' },
-        'do_am':     { icon: 'water_drop', cls: 'info',    label: 'Độ ẩm bất thường' },
-        'anh sang':  { icon: 'light_mode', cls: 'warning', label: 'Ánh sáng bất thường' },
-        'anh_sang':  { icon: 'light_mode', cls: 'warning', label: 'Ánh sáng bất thường' },
-        'muc nuoc':  { icon: 'water',      cls: 'danger',  label: 'Mức nước thấp' },
-        'muc_nuoc':  { icon: 'water',      cls: 'danger',  label: 'Mức nước thấp' },
-    };
+    const sensorIconMap = {
+    'nhiet do':  { icon: 'thermostat', label: 'Nhiệt độ' },
+    'nhiet_do':  { icon: 'thermostat', label: 'Nhiệt độ' },
+    'do am':     { icon: 'water_drop', label: 'Độ ẩm' },
+    'do_am':     { icon: 'water_drop', label: 'Độ ẩm' },
+    'anh sang':  { icon: 'light_mode', label: 'Ánh sáng' },
+    'anh_sang':  { icon: 'light_mode', label: 'Ánh sáng' },
+    'muc nuoc':  { icon: 'water',      label: 'Mức nước' },
+    'muc_nuoc':  { icon: 'water',      label: 'Mức nước' },
+};
 
-    function getInfo(loaicambien) {
-        if (!loaicambien) return { icon: 'warning', cls: 'warning', label: 'Cảnh báo hệ thống' };
-        return sensorMap[loaicambien.toLowerCase().trim()]
-            || { icon: 'sensors', cls: 'warning', label: loaicambien };
+// Màu sắc theo mucdo từ DB
+const mucDoMap = {
+    'danger':  { cls: 'danger',  badge: '🔴 Nguy hiểm' },
+    'warning': { cls: 'warning', badge: '🟡 Cảnh báo' },
+};
+
+function getInfo(loaicambien, mucdo) {
+    const sensor = loaicambien
+        ? (sensorIconMap[loaicambien.toLowerCase().trim()] || { icon: 'sensors', label: loaicambien })
+        : { icon: 'warning', label: 'Hệ thống' };
+    const level = mucDoMap[mucdo] || { cls: 'info', badge: 'Thông tin' };
+    return { ...sensor, ...level };
+}
+
+function formatTime(str) {
+    if (!str) return '';
+    const d = new Date(str.replace(' ', 'T'));
+    if (isNaN(d)) return str;
+    const diff = Math.floor((new Date() - d) / 60000);
+    if (diff < 1)    return 'Vừa xong';
+    if (diff < 60)   return `${diff} phút trước`;
+    if (diff < 1440) return `${Math.floor(diff/60)} giờ trước`;
+    return d.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function renderList(items) {
+    const el = document.getElementById('notif-card-list');
+    if (!items || !items.length) {
+        el.innerHTML = `<div class="notif-empty-state">
+            <span class="material-symbols-outlined">notifications_off</span>
+            <h3>Không có thông báo nào</h3>
+            <p> Hệ thống chưa ghi nhận sự kiện nào cần thông báo.</p>
+        </div>`;
+        return;
     }
 
-    function formatTime(str) {
-        if (!str) return '';
-        const d = new Date(str.replace(' ', 'T'));
-        if (isNaN(d)) return str;
-        const diff = Math.floor((new Date() - d) / 60000);
-        if (diff < 1)    return 'Vừa xong';
-        if (diff < 60)   return `${diff} phút trước`;
-        if (diff < 1440) return `${Math.floor(diff/60)} giờ trước`;
-        return d.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-    }
+    el.innerHTML = items.map((item, idx) => {
+        const info   = getInfo(item.loaicambien, item.mucdo);
+        const isRead = item.trangthai == 1;
 
-    function renderList(items) {
-        const el = document.getElementById('notif-card-list');
-        if (!items || !items.length) {
-            el.innerHTML = `<div class="notif-empty-state">
-                <span class="material-symbols-outlined">notifications_off</span>
-                <h3>Không có thông báo nào</h3>
-                <p>Hệ thống chưa ghi nhận sự kiện nào cần thông báo.</p>
-            </div>`;
-            return;
-        }
+        // Dùng noidung từ DB (đã được sửa trong input.php)
+        const desc = item.noidung || item.noi_dung || 'Hệ thống phát hiện giá trị bất thường';
 
-        el.innerHTML = items.map((item, idx) => {
-            const info   = getInfo(item.loaicambien);
-            const isRead = item.trangthai == 1;
-            const desc   = item.noi_dung
-                || (item.loaicambien
-                    ? `${item.loaicambien} đã vượt ngưỡng cảnh báo${item.donvido ? ' (' + item.donvido + ')' : ''}`
-                    : 'Hệ thống phát hiện giá trị bất thường');
-            return `
-            <div class="notif-card ${isRead ? '' : 'unread'}" onclick="markRead(${idx})">
-                <div class="nc-icon ${info.cls} material-symbols-outlined">${info.icon}</div>
-                <div class="nc-body">
-                    <div class="nc-title">${info.label}</div>
-                    <div class="nc-desc">${desc}</div>
-                    <div class="nc-time">
-                        <span class="material-symbols-outlined" style="font-size:13px">schedule</span>
-                        ${formatTime(item.thoigian)}
-                    </div>
+        return `
+        <div class="notif-card ${isRead ? '' : 'unread'}" onclick="markRead(${idx})">
+            <div class="nc-icon ${info.cls} material-symbols-outlined">${info.icon}</div>
+            <div class="nc-body">
+                <div class="nc-title" style="display:flex;align-items:center;gap:8px;">
+                    ${info.label}
+                    <span style="font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;
+                        background:${info.cls === 'danger' ? '#fde8e8' : '#fff3cd'};
+                        color:${info.cls === 'danger' ? 'var(--danger)' : '#f59e0b'}">
+                        ${info.badge}
+                    </span>
                 </div>
-            </div>`;
-        }).join('');
-    }
-
+                <div class="nc-desc">${desc}</div>
+                <div class="nc-time">
+                    <span class="material-symbols-outlined" style="font-size:13px">schedule</span>
+                    ${formatTime(item.thoigian)}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
     function filterNotif(type, btn) {
-        currentFilter = type;
-        document.querySelectorAll('.notif-tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        let list = allNotifs;
-        if (type === 'unread')  list = allNotifs.filter(i => i.trangthai != 1);
-        if (type === 'warning') list = allNotifs.filter(i => i.trangthai != 1);
-        renderList(list);
-    }
+    currentFilter = type;
+    document.querySelectorAll('.notif-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Tab "Cảnh báo AI" dùng nguồn dữ liệu HOÀN TOÀN RIÊNG (bảng ai_canhbao),
+    // không lọc từ allNotifs (vốn là cảnh báo ngưỡng cứng) — tách biệt theo
+    // đúng thiết kế đã chốt.
+    if (type === 'ai') { renderAiList(allAiNotifs); return; }
+
+    let list = allNotifs;
+    if (type === 'unread')  list = allNotifs.filter(i => i.trangthai != 1);
+    if (type === 'warning') list = allNotifs.filter(i => i.mucdo === 'danger' || i.mucdo === 'warning');
+    renderList(list);
+}
 
     function markRead(idx) {
+        if (currentFilter === 'ai') return; // tab AI dùng markReadAI() riêng
         if (allNotifs[idx]) allNotifs[idx].trangthai = 1;
         filterNotif(currentFilter, document.querySelector('.notif-tab-btn.active'));
         if (currentUserId) {
@@ -244,6 +269,110 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: currentUserId })
             }).catch(() => {});
+        }
+    }
+
+
+    // ============================================================
+    // TAB "Cảnh báo AI" — nguồn riêng: bảng ai_canhbao qua
+    // API/ai/get_ai_canhbao.php. Không liên quan allNotifs ở trên.
+    // ============================================================
+    function getAiInfo(anomaly_type, mucdo) {
+        if (anomaly_type === 'sensor_fault')
+            return { icon: 'sensors_off', label: 'Lỗi cảm biến', cls: 'danger', badge: '🔴 Lỗi cảm biến' };
+        if (anomaly_type === 'action')
+            return { icon: 'bolt', label: 'AI tự động điều khiển', cls: 'ai-action', badge: '⚡ Tự động' };
+        const isDanger = mucdo === 'danger';
+        return {
+            icon: 'thermostat', label: 'Bất thường môi trường',
+            cls: isDanger ? 'danger' : 'warning',
+            badge: isDanger ? '🔴 Nguy hiểm' : '🟡 Cảnh báo',
+        };
+    }
+
+    function renderAiList(items) {
+        const el = document.getElementById('notif-card-list');
+        if (!items || !items.length) {
+            el.innerHTML = `<div class="notif-empty-state">
+                <span class="material-symbols-outlined">smart_toy</span>
+                <h3>Chưa có cảnh báo AI nào</h3>
+                <p>AI chưa ghi nhận bất thường hoặc hành động tự động nào.</p>
+            </div>`;
+            return;
+        }
+        el.innerHTML = items.map((item, idx) => {
+            const info   = getAiInfo(item.anomaly_type, item.mucdo);
+            const isRead = item.trangthai == 1;
+            const desc   = item.noidung || 'AI vừa ghi nhận 1 sự kiện.';
+            const bg = info.cls === 'danger' ? '#fde8e8' : (info.cls === 'ai-action' ? '#f5f3ff' : '#fff3cd');
+            const fg = info.cls === 'danger' ? 'var(--danger)' : (info.cls === 'ai-action' ? '#7c3aed' : '#f59e0b');
+            return `
+            <div class="notif-card ${isRead ? '' : 'unread'}" onclick="markReadAI(${idx})">
+                <div class="nc-icon ${info.cls} material-symbols-outlined">${info.icon}</div>
+                <div class="nc-body">
+                    <div class="nc-title" style="display:flex;align-items:center;gap:8px;">
+                        ${info.label}
+                        <span style="font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;background:${bg};color:${fg}">
+                            ${info.badge}
+                        </span>
+                    </div>
+                    <div class="nc-desc ai-multiline">${desc}</div>
+                    <div class="nc-time">
+                        <span class="material-symbols-outlined" style="font-size:13px">schedule</span>
+                        ${formatTime(item.thoigian)}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function markReadAI(idx) {
+        if (allAiNotifs[idx]) allAiNotifs[idx].trangthai = 1;
+        if (currentFilter === 'ai') renderAiList(allAiNotifs);
+        updateAiTabLabel();
+        if (currentUserId) {
+            fetch(`${API_BASE}/ai/read_ai_canhbao.php`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: currentUserId })
+            }).catch(() => {});
+        }
+    }
+
+    async function markAllReadAI() {
+        allAiNotifs = allAiNotifs.map(i => ({ ...i, trangthai: 1 }));
+        if (currentFilter === 'ai') renderAiList(allAiNotifs);
+        updateAiTabLabel();
+        if (currentUserId) {
+            await fetch(`${API_BASE}/ai/read_ai_canhbao.php`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: currentUserId })
+            }).catch(() => {});
+        }
+    }
+
+    // Nút header cần biết đang ở tab nào, tránh đánh dấu nhầm nguồn kia
+    function markAllReadCurrentTab() {
+        if (currentFilter === 'ai') markAllReadAI(); else markAllRead();
+    }
+
+    function updateAiTabLabel() {
+        const unread = allAiNotifs.filter(i => i.trangthai != 1).length;
+        const tab = document.querySelectorAll('.notif-tab-btn')[3];
+        if (tab) tab.innerText = unread > 0 ? `Cảnh báo AI (${unread})` : 'Cảnh báo AI';
+    }
+
+    async function loadAiNotifications() {
+        try {
+            if (!currentUserId) return;
+            const res  = await fetch(`${API_BASE}/ai/get_ai_canhbao.php?user_id=${currentUserId}`);
+            const json = await res.json();
+            if (json.status === 'success') {
+                allAiNotifs = json.data || [];
+                updateAiTabLabel();
+                if (currentFilter === 'ai') renderAiList(allAiNotifs);
+            }
+        } catch (e) {
+            console.error('[Thông báo AI]', e.message);
         }
     }
 
@@ -266,6 +395,8 @@
             } else {
                 renderList([]);
             }
+
+            loadAiNotifications(); // nạp song song dữ liệu tab AI
         } catch(e) {
             console.error('[Thông báo]', e.message);
             renderList([]);

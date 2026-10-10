@@ -1,0 +1,207 @@
+# AI Web — bản đối chứng của AI Edge (ESP32)
+
+Mục đích: chứng minh trong báo cáo NCKH rằng nhóm **đã thử nghiệm chạy AI
+trên server web trước**, thấy độ trễ cao hơn do phải gửi dữ liệu lên rồi
+gửi lệnh xuống lại, nên quyết định chuyển AI sang chạy tại Edge (ESP32) để
+phản ứng tức thời.
+
+## Kiến trúc
+
+```
+ESP32 đo cảm biến
+   │  MQTT publish → topic "aquaponic/sensor/data"
+   ▼
+HiveMQ Cloud (broker)
+   │  MQTT subscribe
+   ▼
+AI_Web/web_ai_subscriber.php   (daemon PHP chạy nền liên tục)
+   │
+   ├─ 1. Chạy AI_Web/engine.php → phân tích rule-based (ngưỡng nhiệt độ,
+   │     độ ẩm, ánh sáng, mực nước — dùng lại đúng bộ ngưỡng trong
+   │     API/data_sensor/kiem_tra_nguong.php)
+   │
+   ├─ 2. Nếu cần điều khiển → publish MQTT tới topic "aquaponic/control"
+   │     (đúng format mà nút bấm trên Dashboard đang dùng) → ESP32 tự
+   │     bật/tắt thiết bị y như khi người dùng bấm tay
+   │
+   └─ 3. Gửi kết quả (kèm số liệu độ trễ đo được) về
+         API/ai/nhan_ket_qua.php → lưu chung bảng ai_ket_qua / ai_canhbao
+         với AI Edge, chỉ khác cột `engine` = "web_rule_v1" (Edge Ai đang
+         ghi "edge_threshold_v1") → dễ lọc/so sánh 2 nguồn trên cùng 1 bảng.
+```
+
+## Vì sao đây là bằng chứng "web chậm hơn edge"
+
+AI Edge (ESP32) phân tích **ngay tại chỗ**, trước cả khi gửi dữ liệu đi —
+gần như 0 độ trễ mạng.
+
+AI Web phải đợi dữ liệu đi **1 vòng lên** (ESP32 → broker → server) rồi mới
+phân tích, sau đó nếu cần điều khiển lại phải gửi lệnh đi **1 vòng xuống**
+(server → broker → ESP32) — tức là cõng thêm ít nhất 2 chặng mạng mà Edge AI
+không có.
+
+File `web_ai_subscriber.php` tự đo và in ra console mỗi lần chạy:
+- `processing_ms`: thời gian phân tích thuần (rule-based rất nhanh, chủ yếu
+  đây sẽ nhỏ — điểm này cho thấy **bản thân thuật toán không chậm**, cái
+  chậm là đường truyền mạng đi-về)
+- thời điểm gửi lệnh điều khiển xong (nếu có)
+
+Số liệu này cũng được nhúng luôn vào cột `analysis_summary` trong DB (xem
+được ngay trên Dashboard, mục "Phân tích AI"), tiện trích số liệu thật vào
+báo cáo mà không cần dò log tay.
+
+## Cách chạy
+
+Daemon này **không chạy trong Apache/PHP-FPM** như các file API bình
+thường — nó là 1 tiến trình PHP chạy nền, đứng lắng nghe MQTT liên tục,
+giống hệt `mqtt_subscriber.php` và `ai_mqtt_subscriber.php` đã có sẵn ở
+gốc project.
+
+**Windows (XAMPP):** mở 1 cửa sổ CMD/PowerShell riêng (để song song với các
+subscriber khác đang chạy), rồi:
+```
+cd C:\xampp\htdocs\Test
+php AI_Web\web_ai_subscriber.php
+```
+
+**Linux/macOS:**
+```
+cd /path/to/Test
+php AI_Web/web_ai_subscriber.php
+```
+
+Nhấn `Ctrl+C` để dừng. Muốn chạy nền hẳn (không cần giữ cửa sổ mở) thì dùng
+Task Scheduler (Windows) hoặc `systemd`/`pm2` (Linux) — có thể làm sau khi
+demo tay đã chạy ổn.
+
+## Cờ cấu hình quan trọng (đầu file `web_ai_subscriber.php`)
+
+- `CHO_PHEP_DIEU_KHIEN_THAT` (mặc định `true`): AI Web được phép publish
+  lệnh MQTT bật/tắt thiết bị THẬT. Đổi thành `false` nếu muốn chạy demo chỉ
+  xem log/kết quả phân tích mà không đụng vào thiết bị (an toàn hơn khi
+  test, tránh nhầm lẫn với hành động của Edge AI).
+- `DEVICE_ID`: id thiết bị mặc định khi lưu kết quả (đang để `18`, khớp quy
+  ước có sẵn trong `mqtt_subscriber.php`).
+
+## Lưu ý: AI Web và AI Edge có thể "giẫm chân nhau"
+
+Vì cả 2 dùng chung 1 bộ ngưỡng, khi có bất thường, cả AI Edge (gần như tức
+thời) và AI Web (chậm hơn vài trăm ms tới vài giây) đều sẽ gửi **cùng 1 lệnh
+điều khiển** (ví dụ cùng bật quạt). ESP32 nhận lệnh trùng nhau không gây hại
+gì (lệnh bật quạt khi quạt đã bật là vô hại — idempotent), nhưng đây chính
+là điểm để **nhấn mạnh trong báo cáo**: chạy song song 2 AI chỉ để lấy số
+liệu so sánh, còn khi triển khai thật thì chỉ nên giữ 1 nguồn ra quyết định
+(Edge AI) để tránh lãng phí băng thông/lệnh trùng lặp — đây cũng là 1 lý do
+hợp lý để đưa vào phần "vì sao chọn Edge AI" của báo cáo.
+
+## Nâng cấp lên ML thật (tuỳ chọn, làm sau)
+
+Hiện tại `engine.php` là rule-based (ngưỡng cố định). Nếu muốn thêm 1 bản
+ML thật (ví dụ Isolation Forest — đúng như hệ thống từng thử trước khi
+chuyển qua Edge, theo comment còn sót lại trong `Frontend/js/mqtt.js`) để
+so sánh thêm 1 tầng "độ chính xác" bên cạnh "độ trễ", cần:
+
+1. Tách 1 service Python nhỏ (Flask/FastAPI) chạy model đã train.
+2. `web_ai_subscriber.php` gọi HTTP sang service đó thay vì gọi thẳng
+   `phanTichWebAI()`, giữ nguyên phần đo thời gian + publish MQTT + gửi kết
+   quả về `nhan_ket_qua.php` (chỉ đổi `engine` thành ví dụ `"web_ml_v1"`).
+
+Không bắt buộc phải làm phần này để có đủ số liệu so sánh độ trễ cho báo
+cáo — rule-based hiện tại đã đủ để chứng minh luận điểm "đưa AI lên web tốn
+thêm 2 chặng mạng, nên chuyển AI xuống Edge".
+
+---
+
+# Lớp 2 — Python case search (tình huống kết hợp nhiều cảm biến)
+
+## Vì sao cần
+
+`engine.php` (lớp 1) chỉ so **từng cảm biến riêng lẻ** với ngưỡng của nó. Khi
+nhiều cảm biến cùng bất thường (vd trời nóng **và** độ ẩm cao → oi bức, nguy cơ
+stress nhiệt + nấm mốc) thì lớp 1 chỉ liệt kê riêng rẽ chứ không hiểu ý nghĩa
+của sự kết hợp. Lớp 2 giải quyết bằng **case-based reasoning**: tìm trong
+dataset tình huống (có sẵn lời khuyên + lệnh thiết bị) trường hợp **giống nhất**
+bằng KNN (k=7), rồi trả lời khuyên của trường hợp đó.
+
+## Luồng
+
+```
+dữ liệu cảm biến → Lớp 1: engine.php (luật, ~0.1ms, tự quyết)
+                      │
+                      ├─ < 2 cảm biến bất thường → xong, như cũ
+                      │
+                      └─ ≥ 2 cảm biến bất thường → Lớp 2: POST 127.0.0.1:5001/analyze
+                                                     │
+                      ┌──────────────────────────────┤
+                      ▼                              ▼
+              mode = auto                      mode = advise / none
+        (rất giống 1 case đã biết)        (giống tương đối / không đủ giống)
+   → vừa cảnh báo vừa TỰ ĐIỀU KHIỂN       → CHỈ cảnh báo/khuyên, giữ nguyên
+     (lệnh của case thay lệnh lớp 1)        lệnh của lớp 1, người dùng tự quyết
+```
+
+Service Python chưa chạy / lỗi / quá 1.5s → PHP tự bỏ qua, hệ thống chạy bằng
+lớp 1 như cũ (không bao giờ chết vì lớp 2).
+
+## Ngưỡng dùng chung (`thresholds.json`)
+
+PHP (`engine.php`) và Python (`rules.py`) cùng đọc **1 file** `thresholds.json`
+nên không bao giờ kết luận khác nhau vì lệch ngưỡng. Đổi ngưỡng ở đúng 1 chỗ
+này, rồi restart cả `web_ai_subscriber.php` và `case_service.py`.
+
+⚠️ Ngưỡng **ánh sáng** và **mực nước** đã được quy đổi về thang đo thật của
+cảm biến (ánh sáng 0–900, mực nước 0–2200). Ngưỡng cũ trong `engine.php`
+(lux ngoài trời 1000–30000; mực nước theo % 40–95) khiến số liệu thật luôn bị
+báo nguy hiểm (vd mực nước 1331 bị báo "nguy cơ tràn bể"). Nhiệt độ và độ ẩm
+giữ nguyên số cũ. Muốn chỉnh lại: sửa `thresholds.json`.
+
+## Dataset (`data/case_library.csv`)
+
+Sinh bằng `python/generate_dataset.py` từ ngưỡng 5 mức + luật trong `rules.py`:
+- 5 mức mỗi cảm biến: danger_low / warning_low / normal / warning_high / danger_high
+- Cảm biến lỗi (đọc ra 0) → về trạng thái an toàn (nhiệt lỗi → bật quạt; sáng lỗi
+  → tắt đèn; nước lỗi → tắt bơm; ẩm lỗi → bỏ qua độ ẩm)
+- 5 tình huống kết hợp: **nắng gắt** (nóng+sáng mạnh), **nóng+khô** (bật bơm tưới
+  hạ nhiệt), **nóng+tối** (không bật đèn), **nóng+ẩm** (oi bức), **mát+ẩm** (bật đèn hong khô)
+- An toàn bơm luôn thắng luật khác (mực nước thấp/gần tràn → tắt bơm, kể cả khi
+  luật "nóng+khô" muốn bật bơm tưới)
+- Lấy mẫu phân tầng theo mức (tổ hợp hiếm vẫn đủ mẫu) + 15% mẫu sát ranh giới ngưỡng
+
+**Lưu ý khi viết báo cáo:** đây là dữ liệu **tổng hợp mô phỏng theo luật chuyên
+gia**, không phải log thực tế thu thập từ vườn. Nhãn do luật sinh ra nên KNN về
+bản chất học lại luật đó; giá trị của lớp 2 nằm ở (1) hiểu tình huống kết hợp mà
+lớp 1 không có, (2) giải thích được ("giống trường hợp X") và (3) cơ chế độ tin
+cậy → tự hạ xuống chỉ cảnh báo khi không chắc. Khi có đủ dữ liệu thực, có thể
+thêm các case khai thác từ DB vào cùng file.
+
+## Độ tin cậy (đo bằng `python/evaluate.py`, 8.000 mẫu MỚI không có trong dataset)
+
+| Mode | Tỉ lệ mẫu | Lệnh thiết bị đúng |
+|------|-----------|--------------------|
+| auto (được tự điều khiển) | 10,2% | **100%** |
+| advise (chỉ cảnh báo) | 82,9% | 89,2% |
+| none (không kết luận) | 6,9% | 50,6% |
+
+Độ trễ tìm kiếm trung bình ~1 ms/truy vấn (p95 ~1,1 ms; chưa tính HTTP).
+
+`auto` chiếm ít vì có **chốt chặn biên**: KNN yếu đúng ở sát mốc ngưỡng (hàng xóm
+nằm ở cả 2 phía). Nếu có cảm biến cách mốc ngưỡng hoặc mép thang đo < 3% thang
+đo thì tự hạ `auto` → `advise`. Trước khi có chốt chặn, `auto` sai ~1,1% lệnh
+(toàn ca sát ngưỡng); sau khi có thì 0 sai trên 812 ca. An toàn ưu tiên hơn độ
+phủ — và lớp 1 vẫn tự xử lý mọi trường hợp đơn lẻ như trước.
+
+## Cách chạy
+
+```
+cd AI_Web/python
+pip install -r requirements.txt
+python generate_dataset.py      # tuỳ chọn — file data/case_library.csv đã kèm sẵn
+python evaluate.py              # tuỳ chọn — kiểm tra độ tin cậy
+python case_service.py          # chạy service, để cửa sổ này mở
+```
+Rồi ở cửa sổ khác chạy `php AI_Web/web_ai_subscriber.php` như trước (nhớ restart
+nếu đang chạy bản cũ). Tắt lớp 2: đặt `BAT_LOP_CASE_SEARCH = false` đầu file
+`web_ai_subscriber.php`.
+
+Trên Dashboard, kết quả có lớp 2 mang `engine = web_case_v1` (lớp 1 thuần là
+`web_rule_v1`), phần diễn giải ghi rõ độ tin cậy, mode và độ trễ.
