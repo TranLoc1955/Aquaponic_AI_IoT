@@ -107,10 +107,12 @@
     <?php include '../components/sidebar_light.php'; ?>
     <main class="notif-main">
         <div class="notif-page-header">
-            <h2>
-                <span class="material-symbols-outlined">notifications</span>
-                Trung tâm thông báo
-            </h2>
+            <div class="header-left">
+                <h2>
+                    <span class="material-symbols-outlined">notifications</span>
+                    Trung tâm thông báo
+                </h2>
+            </div>
             <button class="mark-all-btn" onclick="markAllReadCurrentTab()">
                 <span class="material-symbols-outlined" style="font-size:18px;">done_all</span>
                 Đánh dấu tất cả đã đọc

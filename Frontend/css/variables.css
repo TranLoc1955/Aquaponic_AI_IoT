@@ -1,63 +1,54 @@
 :root {
-    /* Primary Colors - Màu chủ đạo */
-    --primary: #00b4d8;
-    /* Soft cyan blue */
-    --primary-dark: #0096c7;
-    /* Deeper blue */
-    --primary-light: #48cae4;
-    /* Light cyan */
-    --primary-bg: #e0f7fa;
-    /* Very light cyan bg */
+    /* Primary Colors - Màu xanh lá chính Fresh Botanical Green */
+    --primary: #23834A;
+    --primary-dark: #1b683a;
+    --primary-light: #34a862;
+    --primary-bg: #E7F4E9;
 
     /* Background - Nền */
-    --bg-main: #f0f4f8;
-    /* Soft blue-gray */
-    --bg-card: #ffffff;
-    /* Pure white */
-    --bg-sidebar: #ffffff;
-    /* Pure white */
-    --bg-header: #ffffff;
-    /* Pure white */
-    --bg-hover: #e3f2fd;
-    /* Light blue hover */
-    --bg-active: #bbdefb;
-    /* Soft blue active */
+    --bg-main: #F4F8F3;
+    /* Xanh trắng rất nhạt */
+    --bg-card: #FFFFFF;
+    /* Trắng tinh */
+    --bg-sidebar: #FFFFFF;
+    /* Trắng tinh */
+    --bg-header: #FFFFFF;
+    /* Trắng tinh */
+    --bg-hover: #F0F7F1;
+    /* Xanh rất nhạt khi hover */
+    --bg-active: #E7F4E9;
+    /* Xanh lá nhạt mục active */
 
     /* Text - Chữ */
-    --text-primary: #1a2332;
-    /* Dark blue-gray */
-    --text-secondary: #5f6c7b;
-    /* Medium gray-blue */
-    --text-muted: #9aa5b1;
-    /* Light gray */
+    --text-primary: #25382B;
+    /* Màu chữ chính xanh đen đậm */
+    --text-secondary: #718071;
+    /* Màu chữ phụ xám xanh */
+    --text-muted: #8e9e8f;
+    /* Màu chữ mờ */
     --text-white: #ffffff;
-    /* Pure white */
 
     /* Border - Viền */
-    --border-color: #d1dce5;
-    /* Soft blue-gray */
-    --border-light: #e8eef3;
-    /* Very light border */
-    --border-dark: #b0bec5;
-    /* Medium border */
+    --border-color: #E3EDE1;
+    /* Đường viền xanh xám nhạt */
+    --border-light: #EEF5EC;
+    --border-dark: #cbd9c8;
 
-    /* Status Colors - Màu trạng thái */
-    --success: #10b981;
-    /* Fresh green */
+    /* Status Colors - Màu trạng thái riêng biệt cho cảnh báo */
+    --success: #23834A;
+    /* Xanh lá cho trạng thái tốt */
     --warning: #f59e0b;
-    /* Warm orange */
+    /* Cam cho cảnh báo */
     --danger: #ef4444;
-    /* Soft red */
-    --info: #3b82f6;
-    /* Bright blue */
+    /* Đỏ cho lỗi nghiêm trọng */
+    --info: #2b7bc4;
 
     /* Sensor Colors - Màu cảm biến */
-    --temp-color: #ff6b6b;
-    /* Coral red */
-    --temp-bg: #ffe5e5;
-    /* Light pink */
+    --temp-color: #e05656;
+    --temp-bg: #fde8e8;
 
-    --humidity-color: #4ecdc4;
+    --humidity-color: #2a9d8f;
+    --humidity-bg: #e2f5f3;
     /* Turquoise */
     --humidity-bg: #e0f7f7;
     /* Light turquoise */
@@ -148,9 +139,23 @@
     --transition-slow: 0.3s ease;
 
     /* ===== LAYOUT SIZES ===== */
-    --sidebar-width: 280px;
+    --sidebar-width: 250px;
+    --sidebar-width-expanded: 250px;
+    --sidebar-width-collapsed: 68px;
     --header-height: 80px;
     --container-max: 1400px;
+
+    /* ===== SIDEBAR FRESH BOTANICAL GREEN THEME ===== */
+    --sidebar-bg: #FFFFFF;
+    --sidebar-border: #E3EDE1;
+    --sidebar-text: #718071;
+    --sidebar-text-hover: #25382B;
+    --sidebar-hover-bg: #F4F8F3;
+    --sidebar-active-bg: #E7F4E9;
+    --sidebar-active-text: #23834A;
+    --sidebar-accent: #23834A;
+    --sidebar-group-title: #718071;
+    --sidebar-tooltip-bg: #25382B;
 }
 
 @media (prefers-color-scheme: dark) {

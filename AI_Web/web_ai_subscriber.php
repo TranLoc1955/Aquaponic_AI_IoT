@@ -1,14 +1,20 @@
 <?php
 /**
- * AI_Web/web_ai_subscriber.php
- * Luồng xử lý:
+ * AI_Web/web_ai_subscriber.php — AI Web kiểu HYBRID
  *
- *   ESP32 đo cảm biến --MQTT--> HiveMQ --subscribe--> [FILE NÀY]
- *        --phân tích rule-based (engine.php)--> quyết định
- *        --publish MQTT--> topic "aquaponic/control" --> ESP32 bật/tắt thiết bị
- *        --HTTP POST--> API/ai/nhan_ket_qua.php (lưu DB, engine="web_rule_v1")
- * CÁCH CHẠY (phải chạy song song, không tắt, trong lúc demo/thu thập số liệu):
- *   Windows (XAMPP)  : mở CMD riêng, chạy  php AI_Web\web_ai_subscriber.php
+ *   ESP32 --MQTT--> HiveMQ --subscribe--> [FILE NÀY]
+ *     Lớp 1: so ngưỡng mặc định (engine.php + thresholds.json) -> lệnh điều khiển mặc định
+ *     Nếu có cảm biến lệch ngưỡng mà ngưỡng mặc định không phân tích được
+ *       (nhiều cảm biến cùng lệch, hoặc mức không có phân tích) ->
+ *     Lớp 2: POST 127.0.0.1:5001/analyze (python/case_service.py) -> tra LUẬT học từ
+ *            bộ dữ liệu của hệ thống -> trả PHÂN TÍCH để hiển thị.
+ *     --publish MQTT--> "aquaponic/control" (lệnh lớp 1)
+ *     --publish MQTT--> "aquaponic/ai/result/<id>" (Dashboard cập nhật realtime)
+ *     --HTTP POST--> API/ai/nhan_ket_qua.php (lưu DB; engine = web_rule_v1 | web_hybrid_v1)
+ *
+ * CÁCH CHẠY (chạy song song, không tắt):
+ *   1) cd AI_Web/python && python case_service.py
+ *   2) php AI_Web\web_ai_subscriber.php
  * ------------------------------------------------------------
  */
 
@@ -36,14 +42,16 @@ const API_NHAN_KET_QUA = 'http://localhost/Test/API/ai/nhan_ket_qua.php';
 // false = chỉ phân tích + ghi log/DB, không đụng thiết bị (bật lại nếu muốn tách biệt an toàn với Edge AI khi demo)
 const CHO_PHEP_DIEU_KHIEN_THAT = true;
 
-// ── Lớp 2: Python case search (xem AI_Web/python/case_service.py) ──
-// Chỉ được gọi khi có từ CASE_TRIGGER_MIN_SENSORS cảm biến trở lên đồng thời bất thường
-// (tình huống KẾT HỢP mà luật đơn lẻ của engine.php không hiểu được, vd nóng + ẩm).
-// Service Python chưa chạy / lỗi / quá chậm -> tự bỏ qua, hệ thống vẫn chạy bằng luật như cũ.
-const BAT_LOP_CASE_SEARCH      = true;
-const CASE_SERVICE_URL         = 'http://127.0.0.1:5001/analyze';
-const CASE_TRIGGER_MIN_SENSORS = 2;
-const CASE_TIMEOUT_MS          = 1500;
+// ── Lớp 2: Python (tra luật học từ dữ liệu — xem python/case_service.py) ──
+// Điều kiện gọi lớp 2 nằm trong thresholds.json ("case_trigger" + "phan_tich_mac_dinh").
+// Service chưa chạy / lỗi / quá chậm -> tự bỏ qua, hệ thống vẫn chạy bằng lớp 1.
+const BAT_LOP_CASE_SEARCH = true;
+const CASE_SERVICE_URL    = 'http://127.0.0.1:5001/analyze';
+const CASE_TIMEOUT_MS     = 1500;
+
+// Mặc định false: lớp 2 CHỈ hiển thị phân tích + gợi ý thiết bị, KHÔNG tự điều khiển.
+// true = lệnh khuyến nghị của lớp 2 sẽ thay lệnh mặc định của lớp 1 (chỉ bật khi đã kiểm chứng).
+const CHO_PHEP_LOP2_DIEU_KHIEN = false;
 
 $settings = (new ConnectionSettings)
     ->setUsername($username)
@@ -176,14 +184,19 @@ $client->subscribe('aquaponic/sensor/data', function ($topic, $message) use ($cl
         'muc_nuoc' => $data['muc_nuoc'] ?? null,
     ];
 
-    // ── Lớp 1: luật đơn lẻ (engine.php) — nhanh, tất định ──
-    $ketQua = phanTichWebAI($sv);
+    // ── Lớp 1: so ngưỡng mặc định (engine.php) ──
+    try {
+        $ketQua = phanTichWebAI($sv);
+    } catch (Throwable $e) {
+        echo "[" . date('H:i:s') . "] ❌ Lỗi lớp 1: " . $e->getMessage() . "\n";
+        return; // không để 1 gói lỗi làm chết daemon
+    }
     $processingMs = round((microtime(true) - $t0) * 1000, 2);
 
-    // ── Lớp 2: tình huống KẾT HỢP nhiều cảm biến -> tìm case tương tự (Python/KNN) ──
+    // ── Lớp 2: chỉ khi lớp 1 báo "ngoài phân tích mặc định" ──
     $caseInfo = null;
     $caseMs   = null;
-    if (BAT_LOP_CASE_SEARCH && count($ketQua['abnormal_sensors']) >= CASE_TRIGGER_MIN_SENSORS) {
+    if (BAT_LOP_CASE_SEARCH && $ketQua['can_case_search']) {
         $tc = microtime(true);
         $caseInfo = goiCaseSearch($sv);
         $caseMs = round((microtime(true) - $tc) * 1000, 2);
@@ -195,27 +208,42 @@ $client->subscribe('aquaponic/sensor/data', function ($topic, $message) use ($cl
     $summary        = $ketQua['summary'];
     $recommendation = $ketQua['recommendation'];
     $actionTaken    = $ketQua['action_taken'];
-    $lenh           = []; // device => 'ON'|'OFF' — tất cả lệnh sẽ publish xuống ESP32
+    $lenh           = $ketQua['commands']; // device => 'ON'|'OFF' — lệnh sẽ publish xuống ESP32
     $caseGhiChu     = '';
-    if ($actionTaken) {
-        $lenh[$actionTaken['device']] = $actionTaken['command'];
-    }
 
-    if ($caseInfo && in_array($caseInfo['mode'], ['auto', 'advise'], true)) {
-        $engineName = 'web_case_v1';
-        $summary    = 'Tình huống kết hợp: ' . $caseInfo['label'] . ' | Số liệu: ' . $ketQua['summary'];
-        if ($caseInfo['severity'] === 'danger') $severity = 'danger';
+    if ($caseInfo) {
+        $engineName = 'web_hybrid_v1';
+        $summary    = 'Phân tích tình huống: ' . $caseInfo['label'] . ' | Số liệu: ' . $ketQua['summary'];
 
+        $doTinCay = ['cao' => 'cao', 'trung_binh' => 'trung bình (sát ngưỡng)', 'thap' => 'thấp (ít dữ liệu mẫu)'];
         $caseGhiChu = sprintf(
-            ' [Case search: tin cậy %d%%, %s, %.1fms]',
-            round($caseInfo['confidence'] * 100),
-            $caseInfo['mode'] === 'auto' ? 'tự động' : 'chỉ cảnh báo',
+            ' [Luật học từ dữ liệu: độ tin cậy %s, %d mẫu, %.1fms]',
+            $doTinCay[$caseInfo['confidence']['muc']] ?? '?',
+            $caseInfo['confidence']['ho_tro'],
             $caseInfo['latency_ms']
         );
 
-        if ($caseInfo['mode'] === 'auto') {
-            // Rất giống 1 case đã biết -> được phép tự điều khiển, thay thế lệnh của lớp 1
-            // (lệnh của case là tập cha: đã gồm cả luật đơn lẻ + luật kết hợp + an toàn bơm)
+        // Gợi ý thiết bị của lớp 2 so với lệnh mặc định của lớp 1
+        $khuyenNghi = [];
+        $xungDot    = [];
+        foreach (['quatgio' => 'Quạt', 'denled' => 'Đèn', 'maybom' => 'Bơm'] as $dev => $ten) {
+            $v = $caseInfo['commands'][$dev] ?? null;
+            if ($v !== 0 && $v !== 1) continue;
+            $khuyenNghi[] = $ten . ' ' . ($v === 1 ? 'BẬT' : 'TẮT');
+            $l1 = $lenh[$dev] ?? null;
+            if ($l1 !== null && (($l1 === 'ON') !== ($v === 1))) {
+                $xungDot[] = "{$ten}: mặc định " . ($l1 === 'ON' ? 'BẬT' : 'TẮT') . " nhưng tình huống này khuyến nghị " . ($v === 1 ? 'BẬT' : 'TẮT');
+            }
+        }
+        $caseGhiChu .= ' [Khuyến nghị thiết bị: ' . implode(', ', $khuyenNghi) . ']';
+        if ($xungDot) $caseGhiChu .= ' [⚠️ Khác lệnh mặc định: ' . implode('; ', $xungDot) . ']';
+
+        $recommendation = [
+            'action'  => $ketQua['anomaly_type'] === 'sensor_fault' ? 'CHECK_SENSOR' : 'CHECK_ENVIRONMENT',
+            'message' => mb_substr('Tình huống: ' . $caseInfo['label'], 0, 200),
+        ];
+
+        if (CHO_PHEP_LOP2_DIEU_KHIEN) {
             $lenh = [];
             foreach (['quatgio', 'denled', 'maybom'] as $dev) {
                 $v = $caseInfo['commands'][$dev] ?? -1;
@@ -223,26 +251,9 @@ $client->subscribe('aquaponic/sensor/data', function ($topic, $message) use ($cl
             }
             $actionTaken = null;
             if ($lenh) {
-                // DB (ai_ket_qua) chỉ lưu 1 action/dòng: ghi lệnh đầu tiên, các lệnh còn lại nằm trong summary
                 $dev0 = array_key_first($lenh);
-                $actionTaken = [
-                    'device'  => $dev0,
-                    'command' => $lenh[$dev0],
-                    'reason'  => mb_substr($caseInfo['label'], 0, 120),
-                ];
-                if (count($lenh) > 1) {
-                    $ds = [];
-                    foreach ($lenh as $d => $c) $ds[] = "{$d}={$c}";
-                    $caseGhiChu .= ' [Đã gửi lệnh: ' . implode(', ', $ds) . ']';
-                }
+                $actionTaken = ['device' => $dev0, 'command' => $lenh[$dev0], 'reason' => mb_substr($caseInfo['label'], 0, 120)];
             }
-            $recommendation = ['action' => 'AUTO_CONTROL', 'message' => mb_substr($caseInfo['label'], 0, 200)];
-        } else {
-            // Giống tương đối -> CHỈ cảnh báo. Lệnh của lớp 1 (luật đơn lẻ) vẫn giữ nguyên.
-            $recommendation = [
-                'action'  => 'ADVISE_CASE',
-                'message' => 'Gợi ý (chưa tự thực hiện): ' . mb_substr($caseInfo['label'], 0, 180),
-            ];
         }
     }
 
@@ -256,7 +267,7 @@ $client->subscribe('aquaponic/sensor/data', function ($topic, $message) use ($cl
 
     $totalMs = round((microtime(true) - $t0) * 1000, 2);
     echo "[" . date('H:i:s') . "] 🧠 [{$engineName}] luật: {$processingMs}ms"
-        . ($caseMs !== null ? ", case search: {$caseMs}ms" . ($caseInfo ? " (mode={$caseInfo['mode']}, tin cậy " . round($caseInfo['confidence'] * 100) . "%)" : " (lỗi)") : "")
+        . ($caseMs !== null ? ", case search: {$caseMs}ms" . ($caseInfo ? " (tin cậy {$caseInfo['confidence']['muc']}, {$caseInfo['confidence']['ho_tro']} mẫu)" : " (lỗi)") : "")
         . ($dieuKhienMs !== null ? ", gửi lệnh xong lúc +{$dieuKhienMs}ms" : "")
         . " (tổng {$totalMs}ms)\n";
 
@@ -279,7 +290,7 @@ $client->subscribe('aquaponic/sensor/data', function ($topic, $message) use ($cl
             'anhsang'  => $sv['anh_sang'],
         ],
         'ai_result' => [
-            'engine'       => $engineName, // web_rule_v1 (luật) hoặc web_case_v1 (có case search) — khác "edge_threshold_v1"
+            'engine'       => $engineName, // web_rule_v1 (chỉ ngưỡng) hoặc web_hybrid_v1 (có lớp 2) — khác "edge_threshold_v1"
             'time_window'  => xacDinhKhungGio(),
             'anomaly_type' => $ketQua['anomaly_type'],
             'severity'     => $severity,

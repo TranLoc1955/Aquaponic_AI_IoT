@@ -2,7 +2,6 @@
 /* Cards, Buttons, Forms, Toggle, Modals, Alerts */
 
 /* ===== SENSOR CARDS ===== */
-/* Tailwind: p-6 rounded-2xl bg-surface-dark border border-[#234839] shadow-lg hover:border-primary/50 */
 .sensor-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -191,7 +190,6 @@
 }
 
 /* ===== TOGGLE SWITCH ===== */
-/* Tailwind: relative inline-flex items-center cursor-pointer */
 .toggle-switch {
     position: relative;
     width: 56px;
@@ -226,15 +224,15 @@
     transition: var(--transition-base);
 }
 
-input:checked + .toggle-slider {
+input:checked+.toggle-slider {
     background-color: var(--primary);
 }
 
-input:checked + .toggle-slider:before {
+input:checked+.toggle-slider:before {
     transform: translateX(28px);
 }
 
-input:disabled + .toggle-slider {
+input:disabled+.toggle-slider {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -470,7 +468,9 @@ input:disabled + .toggle-slider {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* ===== NOTIFICATION DOT ===== */
@@ -489,6 +489,13 @@ input:disabled + .toggle-slider {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
 }

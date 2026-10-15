@@ -163,9 +163,8 @@
         .ai-table-wrap::-webkit-scrollbar { width: 4px; }
         .ai-table-wrap::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
-        /* ============ Biểu đồ realtime dưới mỗi thẻ cảm biến ============
-           4 mini line-chart tương ứng 4 cảm biến, tự đẩy điểm mới vào mỗi
-           khi có dữ liệu MQTT tới (xem pushDashboardChartPoint trong script
+        /* 4 mini line-chart tương ứng 4 cảm biến, tự đẩy điểm mới vào mỗi
+        khi có dữ liệu MQTT tới (xem pushDashboardChartPoint trong script
            bên dưới), song song với việc cập nhật số ở .sensor-value. ==== */
         .mini-chart-grid {
             display: grid;

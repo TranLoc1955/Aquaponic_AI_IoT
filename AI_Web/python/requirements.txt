@@ -1,0 +1,3 @@
+# Chỉ cần để HUẤN LUYỆN lại luật (train_rules.py). Chạy case_service.py không cần cài gì thêm.
+pandas
+scikit-learn

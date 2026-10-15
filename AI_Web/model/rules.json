@@ -1,0 +1,648 @@
+{
+ "nguon": "sensor_data_train.csv",
+ "so_dong": 120960,
+ "danh_gia_ngay_chua_thay": {
+  "mau": 34560,
+  "tinh_huong_dung": 1.0,
+  "lenh_quatgio": 1.0,
+  "lenh_denled": 1.0,
+  "lenh_maybom": 1.0
+ },
+ "danh_gia_toan_bo": {
+  "mau": 120960,
+  "tinh_huong_dung": 1.0,
+  "lenh_quatgio": 1.0,
+  "lenh_denled": 1.0,
+  "lenh_maybom": 1.0
+ },
+ "fragments": {
+  "nhiet_cao": {
+   "vi": "Nhiệt cao: bật quạt",
+   "kind": "don_le"
+  },
+  "do_am_cao": {
+   "vi": "Độ ẩm cao: bật quạt thông gió",
+   "kind": "don_le"
+  },
+  "thieu_sang": {
+   "vi": "Thiếu sáng: bật đèn LED",
+   "kind": "don_le"
+  },
+  "muc_nuoc_thap": {
+   "vi": "Mực nước thấp: bật bơm",
+   "kind": "don_le"
+  },
+  "nuoc_day": {
+   "vi": "Nước đầy: không bơm",
+   "kind": "don_le"
+  },
+  "loi_nhiet": {
+   "vi": "Cảm biến nhiệt lỗi: bật quạt an toàn",
+   "kind": "loi"
+  },
+  "loi_sang": {
+   "vi": "Cảm biến sáng lỗi: tắt đèn",
+   "kind": "loi"
+  },
+  "loi_do_am": {
+   "vi": "Cảm biến độ ẩm lỗi: bỏ qua độ ẩm",
+   "kind": "loi"
+  },
+  "loi_nuoc": {
+   "vi": "Cảm biến nước lỗi: tắt bơm",
+   "kind": "loi"
+  },
+  "nang_gat": {
+   "vi": "Nắng gắt: bật quạt hạ nhiệt",
+   "kind": "ket_hop"
+  },
+  "nong_kho": {
+   "vi": "Nóng + khô: bật bơm tưới hạ nhiệt",
+   "kind": "ket_hop"
+  },
+  "nong_toi": {
+   "vi": "Nóng + tối: không bật đèn (tránh sinh nhiệt)",
+   "kind": "ket_hop"
+  },
+  "mat_am": {
+   "vi": "Mát + ẩm: bật đèn LED để ấm và khô",
+   "kind": "ket_hop"
+  }
+ },
+ "fragment_rules": [
+  {
+   "id": "T_nhiet_cao_1",
+   "target": "nhiet_cao",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "high"
+    }
+   ],
+   "text": "Nhiệt độ = Cao"
+  },
+  {
+   "id": "T_do_am_cao_1",
+   "target": "do_am_cao",
+   "if": [
+    {
+     "sensor": "do_am",
+     "is": "high"
+    }
+   ],
+   "text": "Độ ẩm = Cao"
+  },
+  {
+   "id": "T_thieu_sang_1",
+   "target": "thieu_sang",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "not": [
+      "high"
+     ]
+    },
+    {
+     "sensor": "anh_sang",
+     "is": "low"
+    }
+   ],
+   "text": "Nhiệt độ ≠ Cao VÀ Ánh sáng = Thấp"
+  },
+  {
+   "id": "T_muc_nuoc_thap_1",
+   "target": "muc_nuoc_thap",
+   "if": [
+    {
+     "sensor": "muc_nuoc",
+     "is": "low"
+    }
+   ],
+   "text": "Mực nước = Thấp"
+  },
+  {
+   "id": "T_nuoc_day_1",
+   "target": "nuoc_day",
+   "if": [
+    {
+     "sensor": "muc_nuoc",
+     "is": "high"
+    }
+   ],
+   "text": "Mực nước = Cao"
+  },
+  {
+   "id": "T_loi_nhiet_1",
+   "target": "loi_nhiet",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "fault"
+    }
+   ],
+   "text": "Nhiệt độ = Lỗi"
+  },
+  {
+   "id": "T_loi_sang_1",
+   "target": "loi_sang",
+   "if": [
+    {
+     "sensor": "anh_sang",
+     "is": "fault"
+    }
+   ],
+   "text": "Ánh sáng = Lỗi"
+  },
+  {
+   "id": "T_loi_do_am_1",
+   "target": "loi_do_am",
+   "if": [
+    {
+     "sensor": "do_am",
+     "is": "fault"
+    }
+   ],
+   "text": "Độ ẩm = Lỗi"
+  },
+  {
+   "id": "T_loi_nuoc_1",
+   "target": "loi_nuoc",
+   "if": [
+    {
+     "sensor": "muc_nuoc",
+     "is": "fault"
+    }
+   ],
+   "text": "Mực nước = Lỗi"
+  },
+  {
+   "id": "T_nang_gat_1",
+   "target": "nang_gat",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "mid"
+    },
+    {
+     "sensor": "anh_sang",
+     "is": "high"
+    }
+   ],
+   "text": "Nhiệt độ = Vừa VÀ Ánh sáng = Cao"
+  },
+  {
+   "id": "T_nong_kho_1",
+   "target": "nong_kho",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "high"
+    },
+    {
+     "sensor": "do_am",
+     "is": "low"
+    },
+    {
+     "sensor": "muc_nuoc",
+     "is": "mid"
+    }
+   ],
+   "text": "Nhiệt độ = Cao VÀ Độ ẩm = Thấp VÀ Mực nước = Vừa"
+  },
+  {
+   "id": "T_nong_toi_1",
+   "target": "nong_toi",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "high"
+    },
+    {
+     "sensor": "anh_sang",
+     "is": "low"
+    }
+   ],
+   "text": "Nhiệt độ = Cao VÀ Ánh sáng = Thấp"
+  },
+  {
+   "id": "T_mat_am_1",
+   "target": "mat_am",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "low"
+    },
+    {
+     "sensor": "do_am",
+     "is": "high"
+    },
+    {
+     "sensor": "anh_sang",
+     "is": "mid"
+    }
+   ],
+   "text": "Nhiệt độ = Thấp VÀ Độ ẩm = Cao VÀ Ánh sáng = Vừa"
+  }
+ ],
+ "device_rules": [
+  {
+   "id": "L_quatgio_1",
+   "target": "quatgio",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "fault"
+    },
+    {
+     "sensor": "do_am",
+     "not": [
+      "high"
+     ]
+    },
+    {
+     "sensor": "anh_sang",
+     "not": [
+      "high"
+     ]
+    }
+   ],
+   "text": "Nhiệt độ = Lỗi VÀ Độ ẩm ≠ Cao VÀ Ánh sáng ≠ Cao"
+  },
+  {
+   "id": "L_quatgio_2",
+   "target": "quatgio",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "not": [
+      "high",
+      "low"
+     ]
+    },
+    {
+     "sensor": "do_am",
+     "not": [
+      "high"
+     ]
+    },
+    {
+     "sensor": "anh_sang",
+     "is": "high"
+    }
+   ],
+   "text": "Nhiệt độ ≠ Cao/Thấp VÀ Độ ẩm ≠ Cao VÀ Ánh sáng = Cao"
+  },
+  {
+   "id": "L_quatgio_3",
+   "target": "quatgio",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "high"
+    },
+    {
+     "sensor": "do_am",
+     "not": [
+      "high"
+     ]
+    }
+   ],
+   "text": "Nhiệt độ = Cao VÀ Độ ẩm ≠ Cao"
+  },
+  {
+   "id": "L_quatgio_4",
+   "target": "quatgio",
+   "if": [
+    {
+     "sensor": "do_am",
+     "is": "high"
+    }
+   ],
+   "text": "Độ ẩm = Cao"
+  },
+  {
+   "id": "L_denled_1",
+   "target": "denled",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "low"
+    },
+    {
+     "sensor": "do_am",
+     "is": "high"
+    },
+    {
+     "sensor": "anh_sang",
+     "is": "mid"
+    }
+   ],
+   "text": "Nhiệt độ = Thấp VÀ Độ ẩm = Cao VÀ Ánh sáng = Vừa"
+  },
+  {
+   "id": "L_denled_2",
+   "target": "denled",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "not": [
+      "high"
+     ]
+    },
+    {
+     "sensor": "anh_sang",
+     "is": "low"
+    }
+   ],
+   "text": "Nhiệt độ ≠ Cao VÀ Ánh sáng = Thấp"
+  },
+  {
+   "id": "L_maybom_1",
+   "target": "maybom",
+   "if": [
+    {
+     "sensor": "nhiet_do",
+     "is": "high"
+    },
+    {
+     "sensor": "do_am",
+     "is": "low"
+    },
+    {
+     "sensor": "muc_nuoc",
+     "is": "mid"
+    }
+   ],
+   "text": "Nhiệt độ = Cao VÀ Độ ẩm = Thấp VÀ Mực nước = Vừa"
+  },
+  {
+   "id": "L_maybom_2",
+   "target": "maybom",
+   "if": [
+    {
+     "sensor": "muc_nuoc",
+     "is": "low"
+    }
+   ],
+   "text": "Mực nước = Thấp"
+  }
+ ],
+ "combo_support": {
+  "mid|mid|mid|mid": 1161,
+  "low|mid|low|mid": 3897,
+  "high|mid|high|mid": 1803,
+  "low|high|low|low": 5222,
+  "low|mid|low|high": 2926,
+  "low|high|low|high": 7449,
+  "low|low|high|mid": 464,
+  "high|low|low|low": 627,
+  "low|mid|high|high": 1141,
+  "high|low|low|high": 703,
+  "low|mid|high|mid": 1296,
+  "mid|mid|low|low": 1832,
+  "low|high|low|mid": 10429,
+  "mid|high|low|mid": 2245,
+  "high|high|high|mid": 482,
+  "fault|low|high|high": 58,
+  "high|mid|low|low": 883,
+  "mid|low|high|high": 1294,
+  "high|low|high|mid": 1658,
+  "low|low|mid|low": 461,
+  "mid|high|mid|mid": 769,
+  "mid|mid|mid|low": 963,
+  "low|low|high|low": 456,
+  "low|low|low|high": 485,
+  "high|fault|low|mid": 50,
+  "mid|low|low|high": 970,
+  "low|mid|high|fault": 66,
+  "mid|low|mid|low": 747,
+  "mid|mid|low|mid": 2906,
+  "low|mid|low|low": 2131,
+  "mid|mid|low|high": 2363,
+  "mid|high|high|mid": 1193,
+  "high|fault|low|low": 42,
+  "high|mid|low|high": 934,
+  "low|high|low|fault": 456,
+  "mid|high|low|low": 1404,
+  "high|mid|mid|mid": 1131,
+  "high|mid|mid|high": 977,
+  "fault|mid|low|mid": 162,
+  "high|low|mid|high": 1020,
+  "low|mid|low|fault": 169,
+  "fault|high|low|high": 189,
+  "low|mid|mid|high": 892,
+  "low|fault|low|low": 146,
+  "high|high|mid|high": 468,
+  "mid|low|low|mid": 1150,
+  "mid|high|low|high": 1848,
+  "high|high|high|high": 495,
+  "high|mid|high|high": 1430,
+  "mid|mid|high|high": 2334,
+  "low|high|fault|low": 160,
+  "mid|high|mid|high": 772,
+  "low|high|mid|low": 1089,
+  "low|fault|low|mid": 289,
+  "fault|high|low|mid": 297,
+  "mid|low|mid|high": 863,
+  "high|low|high|low": 980,
+  "high|mid|low|mid": 1149,
+  "mid|low|low|fault": 56,
+  "mid|fault|low|high": 98,
+  "low|high|mid|high": 1364,
+  "fault|low|mid|high": 41,
+  "fault|high|low|low": 127,
+  "low|mid|fault|mid": 123,
+  "low|mid|high|low": 900,
+  "mid|high|mid|low": 702,
+  "mid|low|mid|mid": 962,
+  "mid|low|high|low": 1067,
+  "mid|mid|high|low": 1880,
+  "low|mid|mid|mid": 991,
+  "high|high|high|low": 481,
+  "low|low|low|low": 466,
+  "mid|high|high|low": 907,
+  "fault|low|mid|low": 53,
+  "high|mid|high|low": 1126,
+  "low|low|low|mid": 515,
+  "high|low|low|mid": 812,
+  "low|high|fault|high": 191,
+  "high|high|low|mid": 490,
+  "fault|mid|low|low": 102,
+  "mid|high|fault|high": 71,
+  "fault|high|mid|mid": 67,
+  "mid|high|high|high": 979,
+  "mid|fault|low|mid": 116,
+  "mid|mid|fault|low": 97,
+  "high|mid|mid|low": 889,
+  "low|low|high|fault": 40,
+  "high|high|low|low": 479,
+  "low|mid|fault|high": 93,
+  "high|high|low|high": 490,
+  "high|low|mid|low": 782,
+  "low|low|mid|high": 441,
+  "low|high|high|mid": 1306,
+  "low|high|mid|mid": 1853,
+  "low|mid|mid|low": 801,
+  "low|fault|low|high": 215,
+  "high|low|mid|fault": 75,
+  "low|fault|high|high": 55,
+  "low|high|high|high": 1084,
+  "fault|mid|high|low": 89,
+  "high|high|mid|low": 455,
+  "high|high|mid|mid": 473,
+  "high|low|high|high": 1377,
+  "low|high|high|low": 869,
+  "high|low|mid|mid": 1220,
+  "fault|low|fault|fault": 20,
+  "fault|high|high|high": 63,
+  "high|high|low|fault": 36,
+  "low|high|fault|mid": 290,
+  "mid|fault|mid|mid": 57,
+  "low|low|high|high": 505,
+  "mid|mid|mid|high": 1049,
+  "mid|high|low|fault": 125,
+  "mid|low|low|low": 848,
+  "mid|low|high|mid": 1562,
+  "mid|fault|high|low": 67,
+  "fault|low|high|low": 43,
+  "fault|low|high|fault": 3,
+  "mid|mid|high|mid": 2959,
+  "mid|fault|mid|low": 52,
+  "fault|high|high|mid": 72,
+  "fault|high|fault|high": 2,
+  "mid|mid|fault|high": 129,
+  "fault|high|high|low": 49,
+  "fault|mid|low|high": 132,
+  "low|low|mid|fault": 30,
+  "low|low|mid|mid": 448,
+  "low|fault|high|mid": 66,
+  "fault|high|mid|high": 64,
+  "fault|fault|low|high": 7,
+  "mid|low|fault|high": 65,
+  "fault|fault|high|fault": 20,
+  "mid|high|mid|fault": 62,
+  "mid|high|fault|mid": 85,
+  "mid|mid|fault|mid": 155,
+  "low|fault|low|fault": 16,
+  "mid|mid|mid|fault": 64,
+  "fault|fault|fault|low": 20,
+  "low|fault|mid|mid": 72,
+  "high|high|mid|fault": 21,
+  "low|mid|mid|fault": 59,
+  "high|high|fault|mid": 27,
+  "fault|low|mid|mid": 60,
+  "low|fault|fault|low": 6,
+  "low|fault|mid|low": 43,
+  "low|low|low|fault": 26,
+  "high|fault|mid|high": 52,
+  "high|low|fault|fault": 3,
+  "fault|mid|mid|low": 46,
+  "high|low|low|fault": 36,
+  "mid|fault|low|low": 100,
+  "mid|mid|low|fault": 136,
+  "low|high|mid|fault": 94,
+  "fault|fault|low|fault": 20,
+  "high|fault|high|mid": 77,
+  "mid|fault|high|mid": 105,
+  "fault|low|low|high": 41,
+  "high|high|high|fault": 31,
+  "fault|fault|fault|high": 20,
+  "mid|fault|mid|high": 52,
+  "low|high|fault|fault": 10,
+  "low|fault|high|low": 50,
+  "low|low|fault|high": 30,
+  "high|low|fault|low": 52,
+  "high|mid|fault|mid": 92,
+  "high|fault|low|high": 48,
+  "fault|low|low|mid": 56,
+  "low|low|fault|mid": 27,
+  "mid|low|fault|low": 40,
+  "high|low|high|fault": 88,
+  "fault|fault|low|mid": 6,
+  "fault|mid|mid|mid": 70,
+  "high|mid|low|fault": 61,
+  "low|fault|fault|high": 5,
+  "high|fault|mid|low": 49,
+  "high|mid|fault|low": 55,
+  "low|mid|fault|low": 74,
+  "high|mid|mid|fault": 60,
+  "mid|low|high|fault": 91,
+  "high|fault|high|low": 63,
+  "mid|low|fault|fault": 2,
+  "fault|low|low|low": 43,
+  "fault|fault|high|low": 4,
+  "mid|low|mid|fault": 42,
+  "mid|low|fault|mid": 76,
+  "low|fault|mid|high": 53,
+  "high|fault|high|high": 73,
+  "high|mid|fault|high": 80,
+  "mid|mid|high|fault": 134,
+  "fault|fault|mid|fault": 20,
+  "high|high|fault|high": 28,
+  "high|fault|mid|mid": 48,
+  "fault|high|mid|low": 46,
+  "high|low|fault|high": 55,
+  "low|low|fault|low": 37,
+  "low|high|high|fault": 61,
+  "fault|mid|fault|high": 5,
+  "fault|mid|high|mid": 102,
+  "mid|fault|fault|low": 5,
+  "fault|mid|high|high": 82,
+  "low|fault|high|fault": 5,
+  "mid|fault|high|high": 112,
+  "fault|low|high|mid": 54,
+  "mid|high|high|fault": 53,
+  "high|mid|high|fault": 82,
+  "mid|high|fault|low": 65,
+  "fault|mid|high|fault": 5,
+  "fault|mid|fault|fault": 20,
+  "fault|fault|high|mid": 5,
+  "fault|low|low|fault": 4,
+  "mid|fault|fault|fault": 20,
+  "high|low|fault|mid": 83,
+  "high|fault|high|fault": 5,
+  "fault|mid|mid|high": 67,
+  "fault|mid|fault|mid": 4,
+  "fault|fault|fault|mid": 20,
+  "high|high|fault|low": 19,
+  "mid|mid|fault|fault": 4,
+  "high|mid|fault|fault": 3,
+  "fault|low|fault|mid": 2,
+  "fault|mid|low|fault": 12,
+  "low|mid|fault|fault": 5,
+  "fault|high|mid|fault": 4,
+  "fault|high|fault|mid": 7,
+  "low|fault|fault|fault": 2,
+  "fault|fault|mid|mid": 20,
+  "fault|fault|fault|fault": 20,
+  "fault|high|low|fault": 11,
+  "fault|mid|mid|fault": 2,
+  "fault|high|high|fault": 2,
+  "mid|fault|low|fault": 7,
+  "fault|mid|fault|low": 3,
+  "high|fault|fault|mid": 1,
+  "fault|low|fault|high": 7,
+  "fault|fault|mid|low": 3,
+  "mid|fault|fault|mid": 5,
+  "fault|high|fault|low": 5,
+  "fault|low|mid|fault": 6,
+  "low|fault|fault|mid": 1,
+  "low|fault|mid|fault": 3,
+  "mid|fault|fault|high": 4,
+  "high|fault|fault|low": 2,
+  "fault|low|fault|low": 5,
+  "mid|fault|high|fault": 4,
+  "high|fault|fault|fault": 1,
+  "high|fault|mid|fault": 1,
+  "fault|high|fault|fault": 2,
+  "fault|fault|mid|high": 2,
+  "mid|high|fault|fault": 1,
+  "low|low|fault|fault": 2,
+  "high|fault|low|fault": 1,
+  "high|high|fault|fault": 1,
+  "fault|fault|low|low": 5,
+  "fault|fault|high|high": 3,
+  "high|fault|fault|high": 5,
+  "mid|fault|mid|fault": 2
+ }
+}

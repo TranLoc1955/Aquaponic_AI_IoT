@@ -1,0 +1,44 @@
+{
+  "_ghi_chu": "NGUỒN NGƯỠNG DUY NHẤT cho engine.php (lớp 1) và python/ (lớp 2). Đổi ở đây rồi chạy lại python/train_rules.py và restart web_ai_subscriber.php + case_service.py. 'breaks' = [mốc giữa Thấp/Vừa, mốc giữa Vừa/Cao]; giá trị >= mốc thì lên mức kế tiếp. Giá trị <= fault_at_or_below = cảm biến lỗi (ESP32 gửi 0).",
+  "case_trigger": {
+    "min_abnormal_sensors": 2,
+    "_ghi_chu": "Lớp 2 được gọi khi: (a) từ min_abnormal_sensors cảm biến trở lên lệch khỏi mức 'mid', HOẶC (b) có cảm biến lệch mà phan_tich_mac_dinh của nó = null (ngưỡng mặc định không có phân tích)."
+  },
+  "sensors": {
+    "nhiet_do": {
+      "label": "Nhiệt độ", "unit": "°C", "breaks": [28, 32], "fault_at_or_below": 0, "near_margin": 0.5
+    },
+    "do_am": {
+      "label": "Độ ẩm", "unit": "%", "breaks": [55, 75], "fault_at_or_below": 0, "near_margin": 2
+    },
+    "anh_sang": {
+      "label": "Ánh sáng", "unit": "", "breaks": [367, 633], "fault_at_or_below": 0, "near_margin": 20
+    },
+    "muc_nuoc": {
+      "label": "Mực nước", "unit": "", "breaks": [733, 1467], "fault_at_or_below": 0, "near_margin": 40
+    }
+  },
+  "phan_tich_mac_dinh": {
+    "_ghi_chu": "Phân tích + hành động mà ngưỡng mặc định (lớp 1) TỰ BIẾT cho từng cảm biến/mức. null = lớp 1 không có phân tích cho mức này -> chuyển sang lớp 2 (Python).",
+    "nhiet_do": {
+      "low":   null,
+      "high":  {"severity": "danger",  "title": "Nhiệt độ cao",       "device": "quatgio", "command": "ON",  "reason": "Nhiệt độ cao, bật quạt hạ nhiệt"},
+      "fault": {"severity": "warning", "title": "Cảm biến nhiệt lỗi", "device": "quatgio", "command": "ON",  "reason": "Cảm biến nhiệt lỗi, bật quạt an toàn"}
+    },
+    "do_am": {
+      "low":   null,
+      "high":  {"severity": "warning", "title": "Độ ẩm cao",          "device": "quatgio", "command": "ON",  "reason": "Độ ẩm cao, bật quạt thông gió"},
+      "fault": {"severity": "warning", "title": "Cảm biến độ ẩm lỗi", "device": null,      "command": null,  "reason": "Cảm biến độ ẩm lỗi, bỏ qua độ ẩm"}
+    },
+    "anh_sang": {
+      "low":   {"severity": "warning", "title": "Thiếu sáng",         "device": "denled",  "command": "ON",  "reason": "Thiếu sáng, bật đèn LED"},
+      "high":  null,
+      "fault": {"severity": "warning", "title": "Cảm biến sáng lỗi",  "device": "denled",  "command": "OFF", "reason": "Cảm biến sáng lỗi, tắt đèn"}
+    },
+    "muc_nuoc": {
+      "low":   {"severity": "warning", "title": "Mực nước thấp",      "device": "maybom",  "command": "ON",  "reason": "Mực nước thấp, bật bơm"},
+      "high":  {"severity": "warning", "title": "Nước đầy",           "device": "maybom",  "command": "OFF", "reason": "Nước đầy, không bơm"},
+      "fault": {"severity": "warning", "title": "Cảm biến nước lỗi",  "device": "maybom",  "command": "OFF", "reason": "Cảm biến nước lỗi, tắt bơm"}
+    }
+  }
+}

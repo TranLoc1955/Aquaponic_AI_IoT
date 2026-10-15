@@ -186,7 +186,8 @@ try {
         // ---- 3. Telegram: CHỈ gửi khi severity=danger HOẶC có action_taken 
         $shouldSendTelegram = ($severity === 'danger') || ($actionDevice !== null);
         if ($shouldSendTelegram) {
-            guiTelegramAI($db, $idthietbi, "🤖 <b>Cảnh báo AI (Edge)</b>\n\n{$noidung}");
+            $nguonAI = (strpos((string)$engine, 'web_') === 0) ? 'Web' : 'Edge';
+            guiTelegramAI($db, $idthietbi, "🤖 <b>Cảnh báo AI ({$nguonAI})</b>\n\n{$noidung}");
         }
     }
 
