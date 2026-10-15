@@ -152,10 +152,20 @@ try {
         ':recommendation_message' => $recoMessage,
     ]);
 
-    // ---- 2. Ghi vào ai_canhbao
+    $lastKqId = (int)$db->lastInsertId();
+
+    // ---- 2. Ghi vào ai_canhbao (chỉ lưu WARNING/DANGER hoặc có action, áp dụng chống trùng lặp) ----
     $isNotable = $isAnomaly || $actionDevice !== null;
 
     if ($isNotable) {
+        // Chuỗi tóm tắt giá trị cảm biến tại thời điểm phát hiện
+        $sensorValsSummary = [];
+        if (isset($sv->nhietdo) && $sv->nhietdo !== null) $sensorValsSummary[] = "Nhiệt độ: " . round((float)$sv->nhietdo, 1) . "°C";
+        if (isset($sv->do_am) && $sv->do_am !== null) $sensorValsSummary[] = "Độ ẩm: " . round((float)$sv->do_am, 1) . "%";
+        if (isset($sv->anhsang) && $sv->anhsang !== null) $sensorValsSummary[] = "Ánh sáng: " . round((float)$sv->anhsang, 1) . " lux";
+        if (isset($sv->muc_nuoc) && $sv->muc_nuoc !== null) $sensorValsSummary[] = "Mực nước: " . round((float)$sv->muc_nuoc, 1);
+        $giaTriCamBienStr = implode(' | ', $sensorValsSummary);
+
         $noidung = $isAnomaly
             ? "🤖 " . nhanAnomalyType($anomalyType) . " tại thiết bị #{$idthietbi} (mức: {$severity})."
             : "🤖 AI vừa tự động điều khiển thiết bị #{$idthietbi}.";
@@ -170,24 +180,75 @@ try {
             $noidung .= "\n💡 Khuyến nghị: {$recoMessage}";
         }
 
-        $stmtAlert = $db->prepare(
-            "INSERT INTO ai_canhbao (idthietbi, noidung, anomaly_type, mucdo, action_device, action_command, trangthai, thoigian)
-             VALUES (:id, :noidung, :anomaly_type, :mucdo, :action_device, :action_command, 0, NOW())"
-        );
-        $stmtAlert->execute([
-            ':id'             => $idthietbi,
-            ':noidung'        => $noidung,
-            ':anomaly_type'   => $anomalyType === 'none' ? 'action' : $anomalyType, // 'action' = AI hành động nhưng không phải bất thường
-            ':mucdo'          => $severity,
-            ':action_device'  => $actionDevice,
-            ':action_command' => $actionCommand,
-        ]);
+        $alertAnomalyType = ($anomalyType === 'none') ? 'action' : $anomalyType;
 
-        // ---- 3. Telegram: CHỈ gửi khi severity=danger HOẶC có action_taken 
-        $shouldSendTelegram = ($severity === 'danger') || ($actionDevice !== null);
-        if ($shouldSendTelegram) {
-            $nguonAI = (strpos((string)$engine, 'web_') === 0) ? 'Web' : 'Edge';
-            guiTelegramAI($db, $idthietbi, "🤖 <b>Cảnh báo AI ({$nguonAI})</b>\n\n{$noidung}");
+        // Deduplication: Kiểm tra sự kiện cùng loại vẫn đang mở (trangthai = 0) trong vòng 90 giây
+        $stmtCheckOpen = $db->prepare(
+            "SELECT id, mucdo, so_lan_lap FROM ai_canhbao 
+             WHERE idthietbi = :id 
+               AND anomaly_type = :atype 
+               AND trangthai = 0 
+               AND TIMESTAMPDIFF(SECOND, COALESCE(thoigian_capnhat, thoigian), NOW()) <= 90
+             ORDER BY id DESC LIMIT 1"
+        );
+        $stmtCheckOpen->execute([
+            ':id'    => $idthietbi,
+            ':atype' => $alertAnomalyType
+        ]);
+        $openAlert = $stmtCheckOpen->fetch(PDO::FETCH_ASSOC);
+
+        if ($openAlert) {
+            // Đang có sự kiện cùng loại tiếp diễn -> Cập nhật thời gian và nội dung mới nhất, không tạo trùng lặp
+            $newMucdo = ($severity === 'danger' || $openAlert['mucdo'] === 'danger') ? 'danger' : $severity;
+            $stmtUpd = $db->prepare(
+                "UPDATE ai_canhbao 
+                 SET noidung = :noidung,
+                     mucdo = :mucdo,
+                     cam_bien = :cam_bien,
+                     gia_tri_cambien = :gia_tri,
+                     action_device = COALESCE(:action_device, action_device),
+                     action_command = COALESCE(:action_command, action_command),
+                     thoigian_capnhat = NOW(),
+                     so_lan_lap = so_lan_lap + 1,
+                     id_ketqua = :id_ketqua
+                 WHERE id = :alert_id"
+            );
+            $stmtUpd->execute([
+                ':noidung'        => $noidung,
+                ':mucdo'          => $newMucdo,
+                ':cam_bien'       => $abnormalSensors,
+                ':gia_tri'        => $giaTriCamBienStr,
+                ':action_device'  => $actionDevice,
+                ':action_command' => $actionCommand,
+                ':id_ketqua'      => $lastKqId,
+                ':alert_id'       => $openAlert['id']
+            ]);
+        } else {
+            // Sự kiện mới xuất hiện -> Tạo bản ghi mới
+            $stmtAlert = $db->prepare(
+                "INSERT INTO ai_canhbao 
+                    (idthietbi, noidung, anomaly_type, cam_bien, gia_tri_cambien, mucdo, action_device, action_command, trangthai, thoigian, thoigian_capnhat, so_lan_lap, id_ketqua)
+                 VALUES 
+                    (:id, :noidung, :anomaly_type, :cam_bien, :gia_tri, :mucdo, :action_device, :action_command, 0, NOW(), NOW(), 1, :id_ketqua)"
+            );
+            $stmtAlert->execute([
+                ':id'             => $idthietbi,
+                ':noidung'        => $noidung,
+                ':anomaly_type'   => $alertAnomalyType,
+                ':cam_bien'       => $abnormalSensors,
+                ':gia_tri'        => $giaTriCamBienStr,
+                ':mucdo'          => $severity,
+                ':action_device'  => $actionDevice,
+                ':action_command' => $actionCommand,
+                ':id_ketqua'      => $lastKqId,
+            ]);
+
+            // ---- 3. Telegram: CHỈ gửi khi tạo sự kiện mới mà severity=danger HOẶC có action_taken ----
+            $shouldSendTelegram = ($severity === 'danger') || ($actionDevice !== null);
+            if ($shouldSendTelegram) {
+                $nguonAI = (strpos((string)$engine, 'web_') === 0) ? 'Web' : 'Edge';
+                guiTelegramAI($db, $idthietbi, "🤖 <b>Cảnh báo AI ({$nguonAI})</b>\n\n{$noidung}");
+            }
         }
     }
 

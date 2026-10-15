@@ -27,8 +27,11 @@ const API = {
     CONFIG_GET: API_BASE + '/cauhinh/get_config.php',
     CONFIG_SAVE: API_BASE + '/cauhinh/save_config.php',
 
-    // AI (Isolation Forest)
-    AI_HISTORY: API_BASE + '/ai/get_ai_history.php'
+    // AI (Isolation Forest & Rule Anomaly)
+    AI_HISTORY: API_BASE + '/ai/get_ai_history.php',
+    AI_EVENTS: API_BASE + '/ai/get_ai_events.php',
+    AI_EVENT_DETAIL: API_BASE + '/ai/get_event_detail.php',
+    AI_EVENT_UPDATE: API_BASE + '/ai/update_event_status.php'
 };
 // Intervals
 const INTERVALS = {

@@ -61,6 +61,13 @@ $current = basename($_SERVER['PHP_SELF']);
                 <span class="nav-icon material-symbols-outlined">history</span>
                 <span class="nav-text">Dữ liệu cảm biến</span>
             </a>
+
+            <a class="nav-item <?= $current == 'ai_historyW.php' ? 'active' : '' ?>" 
+               href="ai_historyW.php" 
+               data-tooltip="Lịch sử AI">
+                <span class="nav-icon material-symbols-outlined">psychology</span>
+                <span class="nav-text">Lịch sử AI</span>
+            </a>
         </div>
 
         <!-- Nhóm 2: Hệ thống & Cấu hình -->

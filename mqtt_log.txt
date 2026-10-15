@@ -1,0 +1,21 @@
+[04:46:33] ✅ Đã kết nối HiveMQ thành công!
+[04:46:33] 🚀 MQTT Subscriber đang chạy... (Ctrl+C để dừng)
+PHP Fatal error:  Uncaught PhpMqtt\Client\Exceptions\DataTransferException: [65] Transferring data over socket failed: Sending data over the socket failed. Has it been closed? in C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php:1139
+Stack trace:
+#0 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(1096): PhpMqtt\Client\MqttClient->writeToSocket('\xC0\x00', 2)
+#1 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(1036): PhpMqtt\Client\MqttClient->writeToSocketWithAutoReconnect('\xC0\x00')
+#2 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(663): PhpMqtt\Client\MqttClient->ping()
+#3 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(615): PhpMqtt\Client\MqttClient->loopOnce(1792032393.5577, true)
+#4 C:\xampp\htdocs\Test\mqtt_subscriber.php(77): PhpMqtt\Client\MqttClient->loop(true)
+#5 {main}
+  thrown in C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php on line 1139
+
+Fatal error: Uncaught PhpMqtt\Client\Exceptions\DataTransferException: [65] Transferring data over socket failed: Sending data over the socket failed. Has it been closed? in C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php:1139
+Stack trace:
+#0 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(1096): PhpMqtt\Client\MqttClient->writeToSocket('\xC0\x00', 2)
+#1 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(1036): PhpMqtt\Client\MqttClient->writeToSocketWithAutoReconnect('\xC0\x00')
+#2 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(663): PhpMqtt\Client\MqttClient->ping()
+#3 C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php(615): PhpMqtt\Client\MqttClient->loopOnce(1792032393.5577, true)
+#4 C:\xampp\htdocs\Test\mqtt_subscriber.php(77): PhpMqtt\Client\MqttClient->loop(true)
+#5 {main}
+  thrown in C:\xampp\htdocs\Test\vendor\php-mqtt\client\src\MqttClient.php on line 1139

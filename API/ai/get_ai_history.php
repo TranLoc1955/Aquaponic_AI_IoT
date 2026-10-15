@@ -14,9 +14,17 @@ try {
     $db = $database->connect();
 
     // 1. Lấy ID thiết bị
-    $stmt_find = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
-    $stmt_find->execute([':uid' => $user_id]);
-    $device = $stmt_find->fetch(PDO::FETCH_ASSOC);
+    $device = null;
+    if ($user_id > 0) {
+        $stmt_find = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
+        $stmt_find->execute([':uid' => $user_id]);
+        $device = $stmt_find->fetch(PDO::FETCH_ASSOC);
+    }
+
+    if (!$device) {
+        $stmt_active = $db->query("SELECT idthietbi FROM ai_ket_qua GROUP BY idthietbi ORDER BY COUNT(*) DESC LIMIT 1");
+        $device = $stmt_active->fetch(PDO::FETCH_ASSOC);
+    }
 
     if (!$device) {
         echo json_encode(["status" => "success", "device_id" => null, "data" => []]);

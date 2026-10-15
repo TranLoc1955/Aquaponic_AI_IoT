@@ -245,21 +245,42 @@ function renderAIInsight(data) {
         }
     }
 
-    // ---- Lưu vào lịch sử phiên (cộng dồn, không ghi đè) ----
-    window.aiHistory.unshift({
-        date: dateStr,
-        time: timeStr,
-        deviceId: data.device_id,
-        timeWindow: windowLabel,
-        typeLabel: typeLabel,
-        typeCls: typeCls,
-        severityCls: style.cls,
-        severityLabel: style.label,
-        summary: analysis.summary || 'Không có dữ liệu.',
-    });
-    if (window.aiHistory.length > AI_HISTORY_MAX) window.aiHistory.length = AI_HISTORY_MAX;
+    // ---- BẢNG CẢNH BÁO BẤT THƯỜNG TRÊN DASHBOARD ----
+    // Chỉ ghi nhận WARNING và DANGER; KHÔNG hiển thị NORMAL (Yêu cầu nghiệp vụ #3 & #4)
+    const sev = (aiResult.severity || '').toLowerCase();
+    if (sev === 'warning' || sev === 'danger') {
+        let abnormalSensor = 'moi_truong';
+        let abnormalVal = '--';
+        if (analysis.abnormal_sensors && analysis.abnormal_sensors.length > 0) {
+            abnormalSensor = analysis.abnormal_sensors[0];
+            if (data.sensor_values && data.sensor_values[abnormalSensor] !== undefined) {
+                abnormalVal = data.sensor_values[abnormalSensor];
+            }
+        } else if (data.sensor_values) {
+            const keys = Object.keys(data.sensor_values);
+            if (keys.length > 0) {
+                abnormalSensor = keys[0];
+                abnormalVal = data.sensor_values[abnormalSensor];
+            }
+        }
 
-    renderAITable();
+        const newAlert = {
+            id: null,
+            thoigian: `${timeStr} ${dateStr}`,
+            loai_canhbao: analysis.summary || typeLabel,
+            cam_bien: abnormalSensor,
+            gia_tri_cambien: abnormalVal,
+            muc_do: sev,
+            trangthai: 0
+        };
+
+        window.aiAlertEvents = window.aiAlertEvents || [];
+        window.aiAlertEvents.unshift(newAlert);
+        if (window.aiAlertEvents.length > 10) window.aiAlertEvents.length = 10;
+        if (typeof renderDashboardAlertTable === 'function') {
+            renderDashboardAlertTable(window.aiAlertEvents);
+        }
+    }
 }
 
 function aiTruncate(text, max) {
@@ -267,57 +288,119 @@ function aiTruncate(text, max) {
     return text.length > max ? text.slice(0, max).trim() + '…' : text;
 }
 
-function renderAITable() {
+function formatAiSensorName(sensorKey) {
+    if (!sensorKey) return '--';
+    const s = String(sensorKey).toLowerCase();
+    if (s.includes('nhiet') || s.includes('temp')) return 'Nhiệt độ';
+    if (s.includes('am') || s.includes('humid')) return 'Độ ẩm';
+    if (s.includes('anh') || s.includes('light') || s.includes('lux')) return 'Ánh sáng';
+    if (s.includes('nuoc') || s.includes('water')) return 'Mực nước';
+    if (s.includes('moi_truong')) return 'Môi trường';
+    return sensorKey;
+}
+
+function formatAiSensorValue(val, sensorKey) {
+    if (val === null || val === undefined || val === '') return '--';
+    if (typeof val === 'string' && val.startsWith('{')) {
+        try {
+            const obj = JSON.parse(val);
+            const k = Object.keys(obj)[0];
+            if (k) return formatAiSensorValue(obj[k], k);
+        } catch (e) {}
+    }
+    const num = parseFloat(val);
+    if (isNaN(num)) return String(val);
+    const s = String(sensorKey || '').toLowerCase();
+    if (s.includes('nhiet') || s.includes('temp')) return `${num.toFixed(1)} °C`;
+    if (s.includes('am') || s.includes('humid')) return `${num.toFixed(0)}%`;
+    if (s.includes('anh') || s.includes('light') || s.includes('lux')) return `${num.toLocaleString()} Lux`;
+    if (s.includes('nuoc') || s.includes('water')) {
+        if (num <= 2) return `${num} (Cạn)`;
+        if (num <= 5) return `${num} (Vừa)`;
+        return `${num} (Đầy)`;
+    }
+    return String(val);
+}
+
+function formatAiEventName(eventName) {
+    if (!eventName) return 'Bất thường';
+    const map = {
+        'nhiet_do_cao': 'Nhiệt độ cao',
+        'nhiet_do_thap': 'Nhiệt độ thấp',
+        'do_am_cao': 'Độ ẩm cao',
+        'do_am_thap': 'Độ ẩm thấp',
+        'anh_sang_yeu': 'Ánh sáng yếu',
+        'anh_sang_gat': 'Ánh sáng gắt',
+        'muc_nuoc_can': 'Mực nước cạn',
+        'muc_nuoc_qua_tai': 'Mực nước quá tải',
+        'mat_ket_noi': 'Mất kết nối cảm biến',
+        'environment': 'Bất thường môi trường',
+        'sensor_fault': 'Lỗi cảm biến',
+    };
+    return map[eventName] || eventName;
+}
+
+function renderDashboardAlertTable(events) {
     const bodyEl = document.getElementById('ai-table-body');
     if (!bodyEl) return;
 
-    if (window.aiHistory.length === 0) {
-        bodyEl.innerHTML = '<tr><td colspan="7" class="ai-table-empty">Chưa có bản ghi nào.</td></tr>';
+    if (!Array.isArray(events) || events.length === 0) {
+        bodyEl.innerHTML = '<tr><td colspan="6" class="ai-table-empty">Hệ thống đang hoạt động an toàn. Chưa có sự kiện cảnh báo nào.</td></tr>';
         return;
     }
 
-    bodyEl.innerHTML = window.aiHistory.map(item => `
-        <tr>
-            <td class="ai-table-date">${item.date || ''}</td>
-            <td class="ai-table-time">${item.time}</td>
-            <td>#${item.deviceId}</td>
-            <td>${item.timeWindow}</td>
-            <td class="${item.typeCls}">${item.typeLabel}</td>
-            <td><span class="ai-badge ai-badge-${item.severityCls}">${item.severityLabel}</span></td>
-            <td>${aiTruncate(item.summary, 48)}</td>
-        </tr>
-    `).join('');
+    bodyEl.innerHTML = events.slice(0, 10).map(item => {
+        let timeDisplay = item.thoigian || '--';
+        if (item.thoigian && item.thoigian.includes(' ')) {
+            const parts = item.thoigian.split(' ');
+            const d = parts[0].split('-');
+            if (d.length === 3) timeDisplay = `${parts[1]} ${d[2]}/${d[1]}/${d[0]}`;
+        }
+
+        const evName = formatAiEventName(item.loai_canhbao || item.noidung);
+        const sName = formatAiSensorName(item.cam_bien);
+        const sVal = formatAiSensorValue(item.gia_tri_cambien, item.cam_bien);
+        const sev = (item.muc_do || 'warning').toLowerCase();
+
+        const sevBadge = (sev === 'danger')
+            ? `<span class="ai-badge ai-badge-danger" style="background:#FEE2E2; color:#DC2626; border:1px solid #FECACA; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><span style="width:6px; height:6px; border-radius:50%; background:#DC2626;"></span>DANGER</span>`
+            : `<span class="ai-badge ai-badge-warning" style="background:#FEF3C7; color:#B45309; border:1px solid #FDE68A; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><span style="width:6px; height:6px; border-radius:50%; background:#F59E0B;"></span>WARNING</span>`;
+
+        const isResolved = parseInt(item.trangthai) === 1;
+        const statusBadge = isResolved
+            ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#ECFDF5; color:#047857; border:1px solid #A7F3D0;"><span style="width:6px; height:6px; border-radius:50%; background:#10B981;"></span>Đã xử lý</span>`
+            : `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#FFFBEB; color:#B45309; border:1px solid #FDE68A;"><span style="width:6px; height:6px; border-radius:50%; background:#F59E0B;"></span>Chưa xử lý</span>`;
+
+        const repeatTag = (item.so_lan_lap && item.so_lan_lap > 1)
+            ? `<span style="font-size:10px; color:#B45309; background:#FEF3C7; padding:1px 5px; border-radius:4px; font-weight:600; margin-left:4px;">×${item.so_lan_lap}</span>`
+            : '';
+
+        const targetUrl = item.id ? `ai_historyW.php?event_id=${item.id}` : `ai_historyW.php`;
+
+        return `
+            <tr style="cursor:pointer;" onclick="window.location.href='${targetUrl}'" title="Xem chi tiết tại trang Lịch sử AI">
+                <td style="color:var(--text-muted); font-size:12px; white-space:nowrap;">${timeDisplay}</td>
+                <td>
+                    <div style="font-weight:600; color:var(--text-primary);">${evName}${repeatTag}</div>
+                </td>
+                <td style="font-weight:500; font-size:12px; color:var(--text-primary);">${sName}</td>
+                <td style="font-weight:600; font-size:12px; color:var(--text-primary);">${sVal}</td>
+                <td>${sevBadge}</td>
+                <td>${statusBadge}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
-// Nạp lịch sử AI từ Database (bảng ai_ket_qua qua API get_ai_history.php)
-// ngay khi trang vừa mở, để khung AI không bị trống mỗi lần tải lại trang.
-async function initAIHistoryFromDB(rows) {
-    if (!Array.isArray(rows) || rows.length === 0) return;
+function renderAITable() {
+    if (typeof renderDashboardAlertTable === 'function') {
+        renderDashboardAlertTable(window.aiAlertEvents || []);
+    }
+}
 
-    window.aiHistory = rows.map(row => {
-        const style = AI_SEVERITY_STYLES[row.severity] || AI_SEVERITY_STYLES.normal;
-        const t = row.thoigian ? new Date(row.thoigian.replace(' ', 'T')) : null;
-        const timeStr = t && !isNaN(t) ? t.toLocaleTimeString('vi-VN') : '';
-        const dateStr = t && !isNaN(t) ? t.toLocaleDateString('vi-VN') : '';
-        return {
-            date: dateStr,
-            time: timeStr,
-            deviceId: row.idthietbi,
-            timeWindow: AI_TIME_WINDOW_LABELS[row.time_window] || '--',
-            typeLabel: AI_TYPE_LABELS[row.anomaly_type] || '--',
-            typeCls: 'ai-type-' + (row.anomaly_type || 'none'),
-            severityCls: style.cls,
-            severityLabel: style.label,
-            summary: row.analysis_summary || 'Không có dữ liệu.',
-        };
-    }).slice(0, AI_HISTORY_MAX);
-    renderAITable();
-
-    // 👉 Đồng thời vẽ lại khối tóm tắt phía trên (Loại/Mức độ/Khung giờ/Cập nhật...)
-    // bằng bản ghi MỚI NHẤT lấy từ DB (rows[0], vì API get_ai_history.php đã
-    // ORDER BY thoigian DESC). Nếu không có bước này, khối trên sẽ đứng ở
-    // trạng thái mặc định "--" cho tới khi có tin MQTT mới, dù DB đã có dữ liệu.
-    const latest = rows[0];
+// Nạp trạng thái phân tích AI gần nhất từ DB (bảng ai_ket_qua) để khung tóm tắt không bị trống
+function initAILatestStatusFromDB(latest) {
+    if (!latest) return;
     renderAIInsight({
         device_id: latest.idthietbi,
         timestamp: latest.thoigian ? latest.thoigian.replace(' ', 'T') : null,
@@ -341,6 +424,9 @@ async function initAIHistoryFromDB(rows) {
             reason: latest.action_reason,
         } : null,
     });
-    window.aiHistory.shift();
-    renderAITable();
+}
+
+async function initAIHistoryFromDB(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    initAILatestStatusFromDB(rows[0]);
 }

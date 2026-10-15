@@ -127,6 +127,23 @@
             font-size: var(--text-xs); font-weight: var(--font-semibold);
             color: var(--text-muted); margin: var(--space-6) 0 var(--space-3) 0;
         }
+        .ai-view-all-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary, #23834A);
+            text-decoration: none;
+            padding: 4px 10px;
+            border-radius: var(--radius-md, 6px);
+            background: #E7F4E9;
+            transition: all 0.2s ease;
+        }
+        .ai-view-all-link:hover {
+            background: #d8edd9;
+            color: #1b6639;
+        }
         .ai-table-wrap {
             border: 1px solid var(--border-color); border-radius: var(--radius-lg);
             overflow: hidden; max-height: 240px; overflow-y: auto;
@@ -435,22 +452,30 @@
                                 <span id="ai-action-text"></span>
                             </div>
 
-                            <div class="ai-table-header">Lịch sử phân tích</div>
+                            <div class="ai-table-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="material-symbols-outlined" style="font-size:20px; color:#DC2626;">warning</span>
+                                    <span style="font-weight:600; color:var(--text-main); font-size:14px;">Sự kiện cảnh báo bất thường gần nhất (Tối đa 10)</span>
+                                </div>
+                                <a href="ai_historyW.php" class="ai-view-all-link">
+                                    <span>Xem toàn bộ lịch sử</span>
+                                    <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
+                                </a>
+                            </div>
                             <div class="ai-table-wrap">
                                 <table class="ai-table">
                                     <thead>
                                         <tr>
-                                            <th>Thời gian</th>
-                                            <th>Ngày</th>
-                                            <th>Thiết bị</th>
-                                            <th>Khung giờ</th>
-                                            <th>Loại</th>
-                                            <th>Mức độ</th>
-                                            <th>Diễn giải</th>
+                                            <th style="width:145px;">Thời gian</th>
+                                            <th>Tên bất thường</th>
+                                            <th style="width:125px;">Cảm biến</th>
+                                            <th style="width:110px;">Giá trị</th>
+                                            <th style="width:110px;">Mức độ</th>
+                                            <th style="width:125px;">Trạng thái</th>
                                         </tr>
                                     </thead>
                                     <tbody id="ai-table-body">
-                                        <tr><td colspan="7" class="ai-table-empty">Chưa có bản ghi nào.</td></tr>
+                                        <tr><td colspan="6" class="ai-table-empty">Đang tải danh sách cảnh báo...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -776,15 +801,31 @@ function pushDashboardChartPoint(data) {
 
 async function loadAIHistory() {
     const userId = getUserId();
-    if (!userId) return;
+
+    // 1. Nạp tối đa 10 sự kiện cảnh báo bất thường (WARNING / DANGER) từ bảng ai_canhbao
     try {
-        const res  = await fetch(`${API.AI_HISTORY}?user_id=${userId}&limit=15`);
-        const json = await res.json();
-        if (json.status === 'success' && Array.isArray(json.data)) {
-            initAIHistoryFromDB(json.data);
+        const eventsRes = await fetch(`${API.AI_EVENTS}?user_id=${userId || ''}&limit=10`);
+        const eventsJson = await eventsRes.json();
+        if (eventsJson.status === 'success' && Array.isArray(eventsJson.data)) {
+            window.aiAlertEvents = eventsJson.data;
+            renderDashboardAlertTable(window.aiAlertEvents);
+        } else {
+            renderDashboardAlertTable([]);
         }
     } catch (e) {
-        console.warn('Chưa nạp được lịch sử AI :', e);//(có thể bảng ai_ket_qua chưa tồn tại)
+        console.warn('Chưa nạp được danh sách cảnh báo AI:', e);
+        renderDashboardAlertTable([]);
+    }
+
+    // 2. Nạp kết quả phân tích AI gần nhất để hiển thị khung tóm tắt trên cùng
+    try {
+        const historyRes = await fetch(`${API.AI_HISTORY}?user_id=${userId || ''}&limit=1`);
+        const historyJson = await historyRes.json();
+        if (historyJson.status === 'success' && Array.isArray(historyJson.data) && historyJson.data.length > 0) {
+            initAILatestStatusFromDB(historyJson.data[0]);
+        }
+    } catch (e) {
+        console.warn('Chưa nạp được trạng thái AI gần nhất:', e);
     }
 }
 
