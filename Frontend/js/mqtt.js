@@ -87,20 +87,35 @@ mqttClient.on('message', async (topic, payload) => {
     }
 }
 
-    // 🤖 Kết quả từ AI Service (Python, Isolation Forest 3 tầng)
-    // AI publish lên topic dạng "aquaponic/ai/result/<device_id>", ví dụ
-    // "aquaponic/ai/result/18". Vì trình duyệt đã subscribe "aquaponic/#"
-    // (dấu # là mọi topic con) nên message này TỰ NHIÊN đã tới đây rồi,
-    // chỉ cần thêm nhánh xử lý là hiển thị được lên UI, không cần sửa gì
-    // ở backend PHP hay kết nối MQTT.
+    // 🤖 Kết quả từ AI Service (Edge / Web AI)
+    // Publish lên topic "aquaponic/ai/result/<device_id>"
     if (topic.startsWith('aquaponic/ai/result/')) {
         try {
             const aiDeviceId = topic.split('/').pop();
-            // Chỉ hiển thị nếu đúng thiết bị đang xem trên Dashboard này
-            if (window.cachedDeviceId && String(aiDeviceId) !== String(window.cachedDeviceId)) return;
-
             const data = JSON.parse(value);
+
+            // 1. Cập nhật giao diện realtime ngay lập tức
             if (typeof renderAIInsight === 'function') renderAIInsight(data);
+
+            // 2. 💾 LƯU BỀN VỮNG VÀO DATABASE QUA API nhan_ket_qua.php
+            // Đảm bảo dữ liệu phân tích AI được lưu vào MySQL ngay khi nhận được,
+            // để khi người dùng F5 (refresh) hoặc mở trang Lịch sử AI thì dữ liệu vẫn còn.
+            const apiUrl = (typeof API !== 'undefined' && API.AI_RECEIVE)
+                ? API.AI_RECEIVE
+                : ((typeof API_BASE !== 'undefined' ? API_BASE : '../API') + '/ai/nhan_ket_qua.php');
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(resJson => {
+                console.log('💾 [AI Result] Đã lưu vào Database:', resJson);
+            })
+            .catch(err => {
+                console.warn('⚠️ [AI Result] Lỗi lưu DB:', err);
+            });
         } catch (e) {
             console.error('Lỗi xử lý kết quả AI:', e);
         }
@@ -301,6 +316,8 @@ function formatAiSensorName(sensorKey) {
 
 function formatAiSensorValue(val, sensorKey) {
     if (val === null || val === undefined || val === '') return '--';
+    
+    // 1. Trường hợp JSON string
     if (typeof val === 'string' && val.startsWith('{')) {
         try {
             const obj = JSON.parse(val);
@@ -308,6 +325,38 @@ function formatAiSensorValue(val, sensorKey) {
             if (k) return formatAiSensorValue(obj[k], k);
         } catch (e) {}
     }
+
+    // 2. Trường hợp chuỗi tổng hợp nhiều cảm biến: "Nhiệt độ: 34.4°C | Độ ẩm: 64.5% | ..."
+    if (typeof val === 'string' && val.includes('|')) {
+        const segments = val.split('|').map(s => s.trim());
+        const s = String(sensorKey || '').toLowerCase();
+        let matched = null;
+        if (s.includes('nhiet') || s.includes('temp')) {
+            matched = segments.find(seg => /nhiệt|temp/i.test(seg));
+        } else if (s.includes('am') || s.includes('humid')) {
+            matched = segments.find(seg => /độ ẩm|ẩm|humid/i.test(seg));
+        } else if (s.includes('anh') || s.includes('light') || s.includes('lux')) {
+            matched = segments.find(seg => /ánh sáng|light|lux/i.test(seg));
+        } else if (s.includes('nuoc') || s.includes('water')) {
+            matched = segments.find(seg => /mực nước|nước|water/i.test(seg));
+        }
+        if (matched) {
+            const colonIdx = matched.indexOf(':');
+            return colonIdx !== -1 ? matched.substring(colonIdx + 1).trim() : matched;
+        }
+        const first = segments[0] || '';
+        const cIdx = first.indexOf(':');
+        return cIdx !== -1 ? first.substring(cIdx + 1).trim() : first;
+    }
+
+    // 3. Nếu chuỗi chứa "Tên: Giá trị" (vd "Nhiệt độ: 34.4°C")
+    if (typeof val === 'string' && val.includes(':')) {
+        const cIdx = val.lastIndexOf(':');
+        const extracted = val.substring(cIdx + 1).trim();
+        if (/[°%lux]/i.test(extracted)) return extracted;
+        val = extracted;
+    }
+
     const num = parseFloat(val);
     if (isNaN(num)) return String(val);
     const s = String(sensorKey || '').toLowerCase();
@@ -379,14 +428,14 @@ function renderDashboardAlertTable(events) {
 
         return `
             <tr style="cursor:pointer;" onclick="window.location.href='${targetUrl}'" title="Xem chi tiết tại trang Lịch sử AI">
-                <td style="color:var(--text-muted); font-size:12px; white-space:nowrap;">${timeDisplay}</td>
+                <td style="color:var(--text-muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${timeDisplay}</td>
                 <td>
-                    <div style="font-weight:600; color:var(--text-primary);">${evName}${repeatTag}</div>
+                    <div style="font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${evName}">${evName}${repeatTag}</div>
                 </td>
-                <td style="font-weight:500; font-size:12px; color:var(--text-primary);">${sName}</td>
-                <td style="font-weight:600; font-size:12px; color:var(--text-primary);">${sVal}</td>
-                <td>${sevBadge}</td>
-                <td>${statusBadge}</td>
+                <td style="font-weight:500; font-size:12px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sName}</td>
+                <td style="font-weight:600; font-size:12px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.gia_tri_cambien || sVal}">${sVal}</td>
+                <td style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sevBadge}</td>
+                <td style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${statusBadge}</td>
             </tr>
         `;
     }).join('');

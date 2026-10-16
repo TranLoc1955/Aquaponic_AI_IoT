@@ -155,7 +155,7 @@ try {
     $lastKqId = (int)$db->lastInsertId();
 
     // ---- 2. Ghi vào ai_canhbao (chỉ lưu WARNING/DANGER hoặc có action, áp dụng chống trùng lặp) ----
-    $isNotable = $isAnomaly || $actionDevice !== null;
+    $isNotable = $isAnomaly || ($severity === 'warning' || $severity === 'danger') || $actionDevice !== null;
 
     if ($isNotable) {
         // Chuỗi tóm tắt giá trị cảm biến tại thời điểm phát hiện

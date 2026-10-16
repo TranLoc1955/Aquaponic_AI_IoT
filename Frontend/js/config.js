@@ -31,7 +31,8 @@ const API = {
     AI_HISTORY: API_BASE + '/ai/get_ai_history.php',
     AI_EVENTS: API_BASE + '/ai/get_ai_events.php',
     AI_EVENT_DETAIL: API_BASE + '/ai/get_event_detail.php',
-    AI_EVENT_UPDATE: API_BASE + '/ai/update_event_status.php'
+    AI_EVENT_UPDATE: API_BASE + '/ai/update_event_status.php',
+    AI_RECEIVE: API_BASE + '/ai/nhan_ket_qua.php'
 };
 // Intervals
 const INTERVALS = {

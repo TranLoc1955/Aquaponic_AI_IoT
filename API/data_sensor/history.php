@@ -20,10 +20,24 @@ try {
     $database = new Database();
     $db = $database->connect();
 
-    // 1. Tìm thiết bị
+    // 1. Tìm thiết bị (ưu tiên thiết bị có dữ liệu hoạt động thực tế)
     $stmt_find = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
     $stmt_find->execute([':uid' => $user_id]);
     $device = $stmt_find->fetch(PDO::FETCH_ASSOC);
+
+    if ($device) {
+        $stmt_chk = $db->prepare("SELECT COUNT(*) FROM dulieucambien WHERE idthietbi = :did");
+        $stmt_chk->execute([':did' => $device['idthietbi']]);
+        if ((int)$stmt_chk->fetchColumn() === 0) {
+            $device = null; // fallback sang thiết bị có dữ liệu cảm biến
+        }
+    }
+
+    if (!$device) {
+        $stmt_act = $db->query("SELECT idthietbi FROM thietbi WHERE idthietbi IN (SELECT idthietbi FROM dulieucambien GROUP BY idthietbi) ORDER BY idthietbi DESC LIMIT 1");
+        $device = $stmt_act->fetch(PDO::FETCH_ASSOC);
+    }
+
     if (!$device) throw new Exception("Không tìm thấy thiết bị");
     $device_id = $device['idthietbi'];
 

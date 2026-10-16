@@ -146,15 +146,39 @@
         }
         .ai-table-wrap {
             border: 1px solid var(--border-color); border-radius: var(--radius-lg);
-            overflow: hidden; max-height: 240px; overflow-y: auto;
+            max-height: 280px; overflow-y: auto; overflow-x: auto;
         }
-        .ai-table { width: 100%; font-size: var(--text-xs); text-align: left; border-collapse: collapse; }
+        .ai-table {
+            width: 100%;
+            min-width: 760px;
+            table-layout: fixed;
+            font-size: var(--text-xs);
+            text-align: left;
+            border-collapse: collapse;
+        }
         .ai-table thead {
             font-size: 11px; color: var(--text-secondary); text-transform: uppercase;
-            background: var(--bg-main); position: sticky; top: 0;
+            background: var(--bg-main); position: sticky; top: 0; z-index: 2;
         }
-        .ai-table th { padding: var(--space-3) var(--space-4); font-weight: var(--font-semibold); letter-spacing: 0.04em; }
-        .ai-table td { padding: var(--space-2) var(--space-4); color: var(--text-primary); border-top: 1px solid var(--border-light); }
+        .ai-table th {
+            padding: var(--space-3) var(--space-3);
+            font-weight: var(--font-semibold);
+            letter-spacing: 0.04em;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ai-table td {
+            padding: var(--space-3) var(--space-3);
+            color: var(--text-primary);
+            border-top: 1px solid var(--border-light);
+            vertical-align: middle;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .ai-row-main { cursor: pointer; }
         .ai-row-main:hover { background: var(--bg-hover); }
         .ai-row-expand-link {
@@ -466,12 +490,12 @@
                                 <table class="ai-table">
                                     <thead>
                                         <tr>
-                                            <th style="width:145px;">Thời gian</th>
-                                            <th>Tên bất thường</th>
-                                            <th style="width:125px;">Cảm biến</th>
-                                            <th style="width:110px;">Giá trị</th>
-                                            <th style="width:110px;">Mức độ</th>
-                                            <th style="width:125px;">Trạng thái</th>
+                                            <th style="width:18%;">Thời gian</th>
+                                            <th style="width:22%;">Tên bất thường</th>
+                                            <th style="width:15%;">Cảm biến</th>
+                                            <th style="width:15%;">Giá trị</th>
+                                            <th style="width:15%;">Mức độ</th>
+                                            <th style="width:15%;">Trạng thái</th>
                                         </tr>
                                     </thead>
                                     <tbody id="ai-table-body">
@@ -734,31 +758,27 @@ function buildMiniChart(cfg) {
     });
 }
 
-// Nạp sẵn lịch sử DASHBOARD_CHART_RANGE_DAYS ngày gần nhất từ DB (API.SENSOR_HISTORY)
-// để biểu đồ không trống khi vừa mở trang, và không kéo hết toàn bộ lịch sử.
+// Nạp sẵn DASHBOARD_CHART_MAX_POINTS bản ghi gần nhất từ DB (API.SENSOR_HISTORY)
+// để biểu đồ Realtime có sẵn dữ liệu nối tiếp ngay khi vừa mở trang hoặc F5,
+// đồng nhất hoàn toàn với tốc độ và mật độ của luồng realtime (không bị nhảy tỉ lệ thời gian khi F5).
 async function loadDashboardChartHistory(cfg) {
     const userId = getUserId();
     if (!userId) return;
     try {
-        const end = new Date();
-        const start = new Date();
-        start.setDate(end.getDate() - DASHBOARD_CHART_RANGE_DAYS);
-        const fmt = (d) => d.toISOString().split('T')[0]; // YYYY-MM-DD
-
-        const url = `${API.SENSOR_HISTORY}?user_id=${userId}&sensor_id=${cfg.sensorId}`
-            + `&start=${fmt(start)}&end=${fmt(end)}`;
+        // Lấy đúng N bản ghi gần nhất từ DB (không truyền start/end để không kéo lịch sử nhiều ngày làm co cụm biểu đồ)
+        const url = `${API.SENSOR_HISTORY}?user_id=${userId}&sensor_id=${cfg.sensorId}&limit=${DASHBOARD_CHART_MAX_POINTS}`;
 
         const res = await fetch(url);
         const json = await res.json();
         const chart = window.dashboardCharts[cfg.key];
         if (json.status === 'success' && Array.isArray(json.data) && chart) {
-            const rows = downsampleRows(json.data, DASHBOARD_CHART_MAX_POINTS);
+            const rows = json.data;
             chart.data.labels = rows.map(row => {
                 const parts = (row.thoigian || '').split(' ');
-                return parts.length > 1 ? parts[1].substring(0, 5) : (row.thoigian || '');
+                return parts.length > 1 ? parts[1].substring(0, 8) : (row.thoigian || '');
             });
             chart.data.datasets[0].data = rows.map(row => parseFloat(row.giatri));
-            chart.update();
+            chart.update('none');
         }
     } catch (e) {
         console.warn(`Không tải được lịch sử biểu đồ [${cfg.key}]:`, e);

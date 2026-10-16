@@ -24,12 +24,37 @@ try {
     $database = new Database();
     $db = $database->connect();
 
-    // 1. Lấy ID thiết bị của người dùng (fallback thiết bị có dữ liệu nếu chưa gắn hoặc không có user_id)
+    // 1. Lấy ID thiết bị của người dùng (fallback thiết bị có dữ liệu nếu chưa gắn hoặc thiết bị của user chưa có dữ liệu AI)
     $device = null;
     if ($user_id) {
-        $stmt_find = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
-        $stmt_find->execute([':uid' => $user_id]);
-        $device = $stmt_find->fetch(PDO::FETCH_ASSOC);
+        // Ưu tiên thiết bị của user này mà CÓ dữ liệu trong ai_canhbao
+        $stmt_user_ai = $db->prepare("
+            SELECT t.idthietbi 
+            FROM thietbi t 
+            INNER JOIN ai_canhbao c ON t.idthietbi = c.idthietbi 
+            WHERE t.id = :uid 
+            GROUP BY t.idthietbi 
+            ORDER BY COUNT(*) DESC 
+            LIMIT 1
+        ");
+        $stmt_user_ai->execute([':uid' => $user_id]);
+        $device = $stmt_user_ai->fetch(PDO::FETCH_ASSOC);
+
+        if (!$device) {
+            $stmt_find = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
+            $stmt_find->execute([':uid' => $user_id]);
+            $device = $stmt_find->fetch(PDO::FETCH_ASSOC);
+        }
+    }
+
+    // Nếu thiết bị được chọn hoàn toàn không có bản ghi ai_canhbao nào:
+    // Tự động fallback sang thiết bị có dữ liệu AI thực tế trong hệ thống (như thiết bị #18)
+    if ($device) {
+        $stmt_chk = $db->prepare("SELECT COUNT(*) FROM ai_canhbao WHERE idthietbi = :did");
+        $stmt_chk->execute([':did' => $device['idthietbi']]);
+        if ((int)$stmt_chk->fetchColumn() === 0) {
+            $device = null;
+        }
     }
 
     if (!$device) {

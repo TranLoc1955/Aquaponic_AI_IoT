@@ -16,9 +16,31 @@ try {
     // 1. Lấy ID thiết bị
     $device = null;
     if ($user_id > 0) {
-        $stmt_find = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
+        $stmt_find = $db->prepare("
+            SELECT t.idthietbi 
+            FROM thietbi t 
+            INNER JOIN ai_ket_qua k ON t.idthietbi = k.idthietbi 
+            WHERE t.id = :uid 
+            GROUP BY t.idthietbi 
+            ORDER BY COUNT(*) DESC 
+            LIMIT 1
+        ");
         $stmt_find->execute([':uid' => $user_id]);
         $device = $stmt_find->fetch(PDO::FETCH_ASSOC);
+
+        if (!$device) {
+            $stmt_def = $db->prepare("SELECT idthietbi FROM thietbi WHERE id = :uid LIMIT 1");
+            $stmt_def->execute([':uid' => $user_id]);
+            $device = $stmt_def->fetch(PDO::FETCH_ASSOC);
+        }
+    }
+
+    if ($device) {
+        $stmt_chk = $db->prepare("SELECT COUNT(*) FROM ai_ket_qua WHERE idthietbi = :did");
+        $stmt_chk->execute([':did' => $device['idthietbi']]);
+        if ((int)$stmt_chk->fetchColumn() === 0) {
+            $device = null;
+        }
     }
 
     if (!$device) {

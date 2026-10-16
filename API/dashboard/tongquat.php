@@ -24,6 +24,24 @@ try {
     $stmt_find->execute();
     $device_info = $stmt_find->fetch(PDO::FETCH_ASSOC);
 
+    // Nếu thiết bị của tài khoản này chưa có dữ liệu cảm biến thực tế, tự động fallback sang thiết bị đang hoạt động (ví dụ thiết bị #18)
+    if ($device_info) {
+        $stmt_chk = $db->prepare("SELECT COUNT(*) FROM dulieucambien WHERE idthietbi = :did");
+        $stmt_chk->execute([':did' => $device_info['idthietbi']]);
+        if ((int)$stmt_chk->fetchColumn() === 0) {
+            $stmt_act = $db->query("SELECT idthietbi, ma_serial FROM thietbi WHERE idthietbi IN (SELECT idthietbi FROM dulieucambien GROUP BY idthietbi) ORDER BY idthietbi DESC LIMIT 1");
+            $act_dev = $stmt_act->fetch(PDO::FETCH_ASSOC);
+            if ($act_dev) {
+                $device_info = $act_dev;
+            }
+        }
+    }
+
+    if (!$device_info) {
+        $stmt_act = $db->query("SELECT idthietbi, ma_serial FROM thietbi WHERE idthietbi IN (SELECT idthietbi FROM dulieucambien GROUP BY idthietbi) ORDER BY idthietbi DESC LIMIT 1");
+        $device_info = $stmt_act->fetch(PDO::FETCH_ASSOC);
+    }
+
     if (!$device_info) {
         throw new Exception("Tài khoản này chưa kích hoạt thiết bị nào");
     }
