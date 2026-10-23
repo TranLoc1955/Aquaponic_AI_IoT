@@ -104,10 +104,16 @@
                             <span class="material-symbols-outlined">filter_alt</span>
                             <span>Bộ lọc tìm kiếm sự kiện</span>
                         </div>
-                        <button type="button" class="btn-reset-filter" onclick="resetFilters()">
-                            <span class="material-symbols-outlined">restart_alt</span>
-                            Đặt lại bộ lọc
-                        </button>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--text-secondary); cursor:pointer;" title="Tự động cập nhật dữ liệu mới mỗi 10 giây">
+                                <input type="checkbox" id="chk-auto-refresh" onchange="toggleAutoRefresh(this.checked)" checked>
+                                <span>Tự động làm mới (10s)</span>
+                            </label>
+                            <button type="button" class="btn-reset-filter" onclick="resetFilters()">
+                                <span class="material-symbols-outlined">restart_alt</span>
+                                Đặt lại bộ lọc
+                            </button>
+                        </div>
                     </div>
 
                     <div class="filters-row">
@@ -121,6 +127,16 @@
                                 <button type="button" class="btn-time-preset" data-time="30days" onclick="setTimePreset('30days', this)">30 ngày</button>
                                 <button type="button" class="btn-time-preset" data-time="custom" onclick="setTimePreset('custom', this)">Tùy chọn</button>
                             </div>
+                        </div>
+
+                        <!-- Lọc Nguồn AI (Edge IoT vs Web) -->
+                        <div class="filter-item">
+                            <label class="filter-label" for="filter-source">Nguồn AI</label>
+                            <select id="filter-source" class="filter-select" onchange="applyFilters()">
+                                <option value="all">Tất cả nguồn (IoT & Web)</option>
+                                <option value="edge">🟢 AI IoT (Edge ESP32)</option>
+                                <option value="web">🟣 AI Web (Server)</option>
+                            </select>
                         </div>
 
                         <!-- Lọc mức độ -->
@@ -389,6 +405,7 @@
         document.getElementById('custom-date-box').classList.remove('show');
         document.getElementById('filter-from-date').value = '';
         document.getElementById('filter-to-date').value = '';
+        if (document.getElementById('filter-source')) document.getElementById('filter-source').value = 'all';
         document.getElementById('filter-severity').value = 'all';
         document.getElementById('filter-sensor').value = 'all';
         document.getElementById('filter-status').value = 'all';
@@ -407,13 +424,14 @@
         const bodyEl = document.getElementById('ai-events-body');
         const paginationBar = document.getElementById('pagination-bar');
 
+        const source = document.getElementById('filter-source') ? document.getElementById('filter-source').value : 'all';
         const severity = document.getElementById('filter-severity').value;
         const sensor = document.getElementById('filter-sensor').value;
         const status = document.getElementById('filter-status').value;
         const fromDate = document.getElementById('filter-from-date').value;
         const toDate = document.getElementById('filter-to-date').value;
 
-        let url = `${API_BASE}/ai/get_ai_events.php?user_id=${currentUserId}&page=${currentPage}&limit=${currentLimit}&time_range=${currentTimeRange}&severity=${severity}&sensor=${sensor}&status=${status}`;
+        let url = `${API_BASE}/ai/get_ai_events.php?user_id=${currentUserId}&page=${currentPage}&limit=${currentLimit}&time_range=${currentTimeRange}&severity=${severity}&sensor=${sensor}&status=${status}&source=${source}`;
         if (currentTimeRange === 'custom' && fromDate && toDate) {
             url += `&from_date=${fromDate}&to_date=${toDate}`;
         }
@@ -514,6 +532,12 @@
             // Số lần lặp
             const repeatTag = item.so_lan_lap > 1 ? `<span style="font-size:10px; background:#fef3c7; color:#b45309; padding:1px 5px; border-radius:4px; margin-left:4px;">Lặp lại x${item.so_lan_lap}</span>` : '';
 
+            // Phân giải nguồn AI (Edge IoT vs Web)
+            const isWeb = (item.engine && item.engine.startsWith('web'));
+            const sourceBadge = isWeb
+                ? `<span style="font-size:10px; font-weight:700; background:#EDE9FE; color:#6D28D9; border:1px solid #DDD6FE; padding:1px 6px; border-radius:4px; margin-right:4px;">WEB</span>`
+                : `<span style="font-size:10px; font-weight:700; background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:1px 6px; border-radius:4px; margin-right:4px;">EDGE</span>`;
+
             return `
                 <tr>
                     <td style="white-space:nowrap;">
@@ -521,8 +545,12 @@
                         <div style="font-size:11px; color:var(--text-secondary);">${timeFormatted.date}</div>
                     </td>
                     <td>
-                        <div style="font-weight:600; color:var(--text-primary);">${eventName} ${repeatTag}</div>
-                        <div style="font-size:11px; color:var(--text-muted);">Thiết bị #${item.idthietbi}</div>
+                        <div style="font-weight:600; color:var(--text-primary); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+                            ${sourceBadge} <span>${eventName}</span> ${repeatTag}
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                            Thiết bị #${item.idthietbi} ${item.engine ? `· <em>${item.engine}</em>` : ''}
+                        </div>
                     </td>
                     <td>${sensorChips}</td>
                     <td style="font-size:12px; color:var(--text-secondary); max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.gia_tri_cambien || ''}">
@@ -754,11 +782,28 @@
         }
     }
 
+    // Quản lý tự động làm mới dữ liệu lịch sử
+    let autoRefreshTimer = null;
+    function toggleAutoRefresh(enabled) {
+        if (autoRefreshTimer) {
+            clearInterval(autoRefreshTimer);
+            autoRefreshTimer = null;
+        }
+        if (enabled) {
+            autoRefreshTimer = setInterval(() => {
+                fetchEvents();
+            }, 10000); // 10 giây tự làm mới 1 lần
+        }
+    }
+
     // Khởi chạy khi DOM sẵn sàng
     document.addEventListener('DOMContentLoaded', async () => {
         initUser();
         startClock();
         await fetchEvents();
+
+        // Mặc định bật tự động làm mới
+        toggleAutoRefresh(true);
 
         // Tự động mở modal chi tiết nếu có tham số ?event_id=... trên URL
         const urlParams = new URLSearchParams(window.location.search);

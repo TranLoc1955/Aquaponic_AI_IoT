@@ -17,6 +17,7 @@ try {
     $severity   = strtolower($_GET['severity'] ?? 'all');
     $sensor     = strtolower($_GET['sensor'] ?? 'all');
     $status     = $_GET['status'] ?? 'all';
+    $source     = strtolower($_GET['source'] ?? 'all');
     $page       = max(1, (int) ($_GET['page'] ?? 1));
     $limit      = max(1, min(100, (int) ($_GET['limit'] ?? 10)));
     $offset     = ($page - 1) * $limit;
@@ -143,10 +144,17 @@ try {
         }
     }
 
+    // Lọc theo Nguồn AI (Edge IoT vs Web)
+    if ($source === 'edge') {
+        $whereConditions[] = "(k.engine LIKE 'edge%' OR k.engine IS NULL)";
+    } elseif ($source === 'web') {
+        $whereConditions[] = "k.engine LIKE 'web%'";
+    }
+
     $whereSql = implode(" AND ", $whereConditions);
 
-    // 4. Đếm số bản ghi khớp bộ lọc
-    $stmt_count = $db->prepare("SELECT COUNT(*) AS total_filtered FROM ai_canhbao c WHERE $whereSql");
+    // 4. Đếm số bản ghi khớp bộ lọc (join ai_ket_qua k để lọc được theo engine)
+    $stmt_count = $db->prepare("SELECT COUNT(*) AS total_filtered FROM ai_canhbao c LEFT JOIN ai_ket_qua k ON c.id_ketqua = k.id WHERE $whereSql");
     $stmt_count->execute($params);
     $total_filtered = (int) $stmt_count->fetch(PDO::FETCH_ASSOC)['total_filtered'];
     $total_pages    = $total_filtered > 0 ? (int) ceil($total_filtered / $limit) : 0;

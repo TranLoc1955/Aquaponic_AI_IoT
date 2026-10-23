@@ -16,6 +16,9 @@ function connectMQTT() {
     mqttClient.on('connect', () => {
         console.log('✅ Đã kết nối HiveMQ thành công!');
         mqttClient.subscribe('aquaponic/#');
+        if (typeof mqttPublishAiWebEnable === 'function') {
+            mqttPublishAiWebEnable(window.isAiWebEnabled);
+        }
     });
 
 mqttClient.on('message', async (topic, payload) => {
@@ -59,10 +62,13 @@ mqttClient.on('message', async (topic, payload) => {
     try {
         const data = JSON.parse(value);
 
+        // Chuẩn hóa giá trị (hỗ trợ cả boolean true/false và số 1/0)
+        const normalizeVal = (v) => (v === 1 || v === '1' || v === true) ? 1 : 0;
+
         // Cập nhật UI
-        if (data.maybom !== undefined)  updateSwitch('sw-pump',  'txt-pump',  data.maybom);
-        if (data.denled !== undefined)   updateSwitch('sw-light', 'txt-light', data.denled);
-        if (data.quatgio !== undefined)  updateSwitch('sw-fan',   'txt-fan',   data.quatgio);
+        if (data.maybom !== undefined)  updateSwitch('sw-pump',  'txt-pump',  normalizeVal(data.maybom));
+        if (data.denled !== undefined)  updateSwitch('sw-light', 'txt-light', normalizeVal(data.denled));
+        if (data.quatgio !== undefined) updateSwitch('sw-fan',   'txt-fan',   normalizeVal(data.quatgio));
 
         // Lưu DB
         const userId = getUserId();
@@ -74,7 +80,7 @@ mqttClient.on('message', async (topic, payload) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         field: field,
-                        value: parseInt(data[field]),
+                        value: normalizeVal(data[field]),
                         user_id: userId
                     })
                 });
@@ -87,19 +93,31 @@ mqttClient.on('message', async (topic, payload) => {
     }
 }
 
-    // 🤖 Kết quả từ AI Service (Edge / Web AI)
+    // 🌐 [1] Kết quả từ AI Web (Server Hybrid / Rule / Case)
+    // Publish lên topic riêng "aquaponic/ai/web/result/<device_id>"
+    if (topic.startsWith('aquaponic/ai/web/result/')) {
+        try {
+            const data = JSON.parse(value);
+            // Chỉ hiển thị nếu chế độ AI Web đang được BẬT trên giao diện
+            if (window.isAiWebEnabled && typeof renderAIWebInsight === 'function') {
+                renderAIWebInsight(data);
+            }
+        } catch (e) {
+            console.error('Lỗi xử lý kết quả AI Web:', e);
+        }
+        return; // Dừng, không để đè sang khung AI IoT
+    }
+
+    // 📡 [2] Kết quả từ AI IoT (Edge ESP32)
     // Publish lên topic "aquaponic/ai/result/<device_id>"
     if (topic.startsWith('aquaponic/ai/result/')) {
         try {
-            const aiDeviceId = topic.split('/').pop();
             const data = JSON.parse(value);
 
-            // 1. Cập nhật giao diện realtime ngay lập tức
+            // 1. Cập nhật giao diện AI IoT (Edge) ngay lập tức
             if (typeof renderAIInsight === 'function') renderAIInsight(data);
 
-            // 2. 💾 LƯU BỀN VỮNG VÀO DATABASE QUA API nhan_ket_qua.php
-            // Đảm bảo dữ liệu phân tích AI được lưu vào MySQL ngay khi nhận được,
-            // để khi người dùng F5 (refresh) hoặc mở trang Lịch sử AI thì dữ liệu vẫn còn.
+            // 2. 💾 Lưu bền vững vào Database qua API nhan_ket_qua.php cho Edge AI
             const apiUrl = (typeof API !== 'undefined' && API.AI_RECEIVE)
                 ? API.AI_RECEIVE
                 : ((typeof API_BASE !== 'undefined' ? API_BASE : '../API') + '/ai/nhan_ket_qua.php');
@@ -111,14 +129,15 @@ mqttClient.on('message', async (topic, payload) => {
             })
             .then(res => res.json())
             .then(resJson => {
-                console.log('💾 [AI Result] Đã lưu vào Database:', resJson);
+                console.log('💾 [Edge AI] Đã lưu vào Database:', resJson);
             })
             .catch(err => {
-                console.warn('⚠️ [AI Result] Lỗi lưu DB:', err);
+                console.warn('⚠️ [Edge AI] Lỗi lưu DB:', err);
             });
         } catch (e) {
-            console.error('Lỗi xử lý kết quả AI:', e);
+            console.error('Lỗi xử lý kết quả AI Edge:', e);
         }
+        return;
     }
 });
 
@@ -135,6 +154,17 @@ function mqttPublishControl(device, value) {
         console.log(`📤 Gửi lệnh: ${topic} ->`, payload);
     } else {
         console.warn('MQTT chưa kết nối, không gửi được lệnh');
+    }
+}
+
+// Gửi trạng thái Bật/Tắt AI Web xuống Broker cho tool web_ai_subscriber.php nhận biết
+function mqttPublishAiWebEnable(enabled) {
+    window.isAiWebEnabled = !!enabled;
+    if (mqttClient && mqttClient.connected) {
+        const topic = `aquaponic/ai/web/enable`;
+        const payload = JSON.stringify({ enabled: enabled ? 1 : 0 });
+        mqttClient.publish(topic, payload, { qos: 0, retain: true });
+        console.log(`📤 Gửi trạng thái công tắc AI Web: ${topic} ->`, payload);
     }
 }
 
@@ -286,12 +316,136 @@ function renderAIInsight(data) {
             cam_bien: abnormalSensor,
             gia_tri_cambien: abnormalVal,
             muc_do: sev,
-            trangthai: 0
+            trangthai: 0,
+            engine: aiResult.engine || 'edge_threshold_v1',
+            so_lan_lap: 1
         };
 
         window.aiAlertEvents = window.aiAlertEvents || [];
-        window.aiAlertEvents.unshift(newAlert);
-        if (window.aiAlertEvents.length > 10) window.aiAlertEvents.length = 10;
+        // Deduplication realtime: nếu sự kiện mới cùng loại, cùng cảm biến và cùng mức độ
+        if (window.aiAlertEvents.length > 0 &&
+            window.aiAlertEvents[0].cam_bien === abnormalSensor &&
+            window.aiAlertEvents[0].muc_do === sev &&
+            (window.aiAlertEvents[0].engine || '').startsWith('edge')) {
+            window.aiAlertEvents[0].thoigian = `${timeStr} ${dateStr}`;
+            window.aiAlertEvents[0].gia_tri_cambien = abnormalVal;
+            window.aiAlertEvents[0].loai_canhbao = analysis.summary || typeLabel;
+            window.aiAlertEvents[0].so_lan_lap = (window.aiAlertEvents[0].so_lan_lap || 1) + 1;
+        } else {
+            window.aiAlertEvents.unshift(newAlert);
+            if (window.aiAlertEvents.length > 10) window.aiAlertEvents.length = 10;
+        }
+        if (typeof renderDashboardAlertTable === 'function') {
+            renderDashboardAlertTable(window.aiAlertEvents);
+        }
+    }
+}
+
+// ============================================================
+// Render kết quả phân tích AI Web (Server Hybrid / Rule / Case)
+// ============================================================
+function renderAIWebInsight(data) {
+    const card = document.getElementById('ai-web-card');
+    if (!card) return;
+
+    const aiResult = data.ai_result || {};
+    const analysis = data.analysis || {};
+    const reco = data.recommendation || {};
+
+    const style = AI_SEVERITY_STYLES[aiResult.severity] || AI_SEVERITY_STYLES.normal;
+    const typeLabel = AI_TYPE_LABELS[aiResult.anomaly_type] || '--';
+    const typeCls = 'ai-type-' + (aiResult.anomaly_type || 'none');
+
+    const t = data.timestamp ? new Date(data.timestamp) : new Date();
+    const timeStr = isNaN(t) ? '' : t.toLocaleTimeString('vi-VN');
+    const dateStr = isNaN(t) ? '' : t.toLocaleDateString('vi-VN');
+
+    // Badge trạng thái Web
+    const badge = document.getElementById('ai-web-status-badge');
+    if (badge) {
+        badge.className = 'ai-badge ai-badge-' + style.cls;
+        badge.innerText = style.label;
+    }
+
+    // Lưới chỉ số Web
+    const typeEl = document.getElementById('ai-web-stat-type');
+    if (typeEl) { typeEl.innerText = typeLabel; typeEl.className = 'ai-stat-value ' + typeCls; }
+
+    const severityEl = document.getElementById('ai-web-stat-severity');
+    if (severityEl) { severityEl.innerText = style.label; severityEl.className = 'ai-stat-value ' + style.cls; }
+
+    // Rút trích độ trễ (latency)
+    const latencyEl = document.getElementById('ai-web-stat-latency');
+    if (latencyEl) {
+        let latStr = '--';
+        const sumText = analysis.summary || '';
+        const match = sumText.match(/Web AI xử lý:\s*([\d\.]+\s*ms(?:,\s*gửi lệnh:\s*[\d\.]+\s*ms)?)/i);
+        if (match) {
+            latStr = match[1];
+        } else if (sumText.includes('ms')) {
+            const m2 = sumText.match(/([\d\.]+\s*ms)/);
+            if (m2) latStr = m2[1];
+        }
+        latencyEl.innerText = latStr;
+    }
+
+    const timeEl = document.getElementById('ai-web-stat-time');
+    if (timeEl) timeEl.innerText = timeStr || '--:--:--';
+
+    // Diễn giải Web
+    const summaryEl = document.getElementById('ai-web-summary');
+    if (summaryEl) summaryEl.innerText = analysis.summary || 'Không có dữ liệu phân tích từ Web.';
+
+    // Khuyến nghị Web
+    const recoWrap = document.getElementById('ai-web-recommendation');
+    const recoChip = document.getElementById('ai-web-reco-chip');
+    const recoMsg  = document.getElementById('ai-web-reco-msg');
+    if (recoWrap) {
+        if (reco.message) {
+            recoWrap.style.display = 'flex';
+            if (recoChip) recoChip.innerText = AI_ACTION_LABELS[reco.action] || reco.action || 'Khuyến nghị';
+            if (recoMsg) recoMsg.innerText = reco.message;
+        } else {
+            recoWrap.style.display = 'none';
+        }
+    }
+
+    // Bảng cảnh báo bất thường chung (ghi nhận nguồn Web)
+    const sev = (aiResult.severity || '').toLowerCase();
+    if (sev === 'warning' || sev === 'danger') {
+        let abnormalSensor = 'moi_truong';
+        let abnormalVal = '--';
+        if (analysis.abnormal_sensors && analysis.abnormal_sensors.length > 0) {
+            abnormalSensor = analysis.abnormal_sensors[0];
+            if (data.sensor_values && data.sensor_values[abnormalSensor] !== undefined) {
+                abnormalVal = data.sensor_values[abnormalSensor];
+            }
+        }
+        const newAlert = {
+            id: null,
+            thoigian: `${timeStr} ${dateStr}`,
+            loai_canhbao: analysis.summary || typeLabel,
+            cam_bien: abnormalSensor,
+            gia_tri_cambien: abnormalVal,
+            muc_do: sev,
+            trangthai: 0,
+            engine: aiResult.engine || 'web_rule_v1',
+            so_lan_lap: 1
+        };
+
+        window.aiAlertEvents = window.aiAlertEvents || [];
+        if (window.aiAlertEvents.length > 0 &&
+            window.aiAlertEvents[0].cam_bien === abnormalSensor &&
+            window.aiAlertEvents[0].muc_do === sev &&
+            (window.aiAlertEvents[0].engine || '').startsWith('web')) {
+            window.aiAlertEvents[0].thoigian = `${timeStr} ${dateStr}`;
+            window.aiAlertEvents[0].gia_tri_cambien = abnormalVal;
+            window.aiAlertEvents[0].loai_canhbao = analysis.summary || typeLabel;
+            window.aiAlertEvents[0].so_lan_lap = (window.aiAlertEvents[0].so_lan_lap || 1) + 1;
+        } else {
+            window.aiAlertEvents.unshift(newAlert);
+            if (window.aiAlertEvents.length > 10) window.aiAlertEvents.length = 10;
+        }
         if (typeof renderDashboardAlertTable === 'function') {
             renderDashboardAlertTable(window.aiAlertEvents);
         }
@@ -424,13 +578,18 @@ function renderDashboardAlertTable(events) {
             ? `<span style="font-size:10px; color:#B45309; background:#FEF3C7; padding:1px 5px; border-radius:4px; font-weight:600; margin-left:4px;">×${item.so_lan_lap}</span>`
             : '';
 
+        const isWebSource = (item.engine && item.engine.startsWith('web'));
+        const sourceBadge = isWebSource
+            ? `<span style="display:inline-flex; align-items:center; font-size:10px; font-weight:700; background:#EDE9FE; color:#6D28D9; border:1px solid #DDD6FE; padding:1px 5px; border-radius:4px; margin-right:4px;">WEB</span>`
+            : `<span style="display:inline-flex; align-items:center; font-size:10px; font-weight:700; background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; padding:1px 5px; border-radius:4px; margin-right:4px;">EDGE</span>`;
+
         const targetUrl = item.id ? `ai_historyW.php?event_id=${item.id}` : `ai_historyW.php`;
 
         return `
             <tr style="cursor:pointer;" onclick="window.location.href='${targetUrl}'" title="Xem chi tiết tại trang Lịch sử AI">
                 <td style="color:var(--text-muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${timeDisplay}</td>
                 <td>
-                    <div style="font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${evName}">${evName}${repeatTag}</div>
+                    <div style="font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${evName}">${sourceBadge}${evName}${repeatTag}</div>
                 </td>
                 <td style="font-weight:500; font-size:12px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sName}</td>
                 <td style="font-weight:600; font-size:12px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.gia_tri_cambien || sVal}">${sVal}</td>
@@ -447,7 +606,7 @@ function renderAITable() {
     }
 }
 
-// Nạp trạng thái phân tích AI gần nhất từ DB (bảng ai_ket_qua) để khung tóm tắt không bị trống
+// Nạp trạng thái phân tích AI IoT (Edge) gần nhất từ DB (bảng ai_ket_qua)
 function initAILatestStatusFromDB(latest) {
     if (!latest) return;
     renderAIInsight({
@@ -459,9 +618,40 @@ function initAILatestStatusFromDB(latest) {
             severity: latest.severity,
             time_window: latest.time_window,
             confidence: latest.confidence,
+            engine: latest.engine || 'edge_threshold_v1',
         },
         analysis: {
             summary: latest.analysis_summary,
+        },
+        recommendation: {
+            action: latest.recommendation_action,
+            message: latest.recommendation_message,
+        },
+        action_taken: latest.action_device ? {
+            device: latest.action_device,
+            command: latest.action_command,
+            reason: latest.action_reason,
+        } : null,
+    });
+}
+
+// Nạp trạng thái phân tích AI Web gần nhất từ DB (bảng ai_ket_qua)
+function initAIWebLatestStatusFromDB(latest) {
+    if (!latest) return;
+    renderAIWebInsight({
+        device_id: latest.idthietbi,
+        timestamp: latest.thoigian ? latest.thoigian.replace(' ', 'T') : null,
+        mode: latest.mode,
+        ai_result: {
+            anomaly_type: latest.anomaly_type,
+            severity: latest.severity,
+            time_window: latest.time_window,
+            confidence: latest.confidence,
+            engine: latest.engine || 'web_rule_v1',
+        },
+        analysis: {
+            summary: latest.analysis_summary,
+            abnormal_sensors: latest.abnormal_sensors ? latest.abnormal_sensors.split(',') : [],
         },
         recommendation: {
             action: latest.recommendation_action,

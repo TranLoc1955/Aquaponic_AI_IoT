@@ -54,7 +54,15 @@ try {
     }
     $device_id = $device['idthietbi'];
 
-    // 2. Lấy N bản ghi AI gần nhất của thiết bị đó
+    // 2. Lấy N bản ghi AI gần nhất của thiết bị đó (có thể lọc theo nguồn: edge hoặc web)
+    $engineFilter = strtolower($_GET['engine'] ?? 'all');
+    $engineWhere = "";
+    if ($engineFilter === 'edge') {
+        $engineWhere = " AND (engine LIKE 'edge%' OR engine IS NULL)";
+    } elseif ($engineFilter === 'web') {
+        $engineWhere = " AND engine LIKE 'web%'";
+    }
+
     $stmt = $db->prepare(
         "SELECT idthietbi, nhietdo, do_am, muc_nuoc, anhsang,
                 mode, time_window, engine, anomaly_type, is_anomaly, severity, confidence,
@@ -62,7 +70,7 @@ try {
                 action_device, action_command, action_reason,
                 recommendation_action, recommendation_message, thoigian
          FROM ai_ket_qua
-         WHERE idthietbi = :did
+         WHERE idthietbi = :did $engineWhere
          ORDER BY thoigian DESC
          LIMIT $limit"
     );

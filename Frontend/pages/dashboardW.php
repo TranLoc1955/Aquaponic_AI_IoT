@@ -204,6 +204,47 @@
         .ai-table-wrap::-webkit-scrollbar { width: 4px; }
         .ai-table-wrap::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
+        /* ---- Layout 2 Card song song khi bật so sánh AI Web ---- */
+        .ai-cards-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: var(--space-5);
+            margin-bottom: var(--space-6);
+            transition: all 0.3s ease;
+        }
+        .ai-cards-container.dual-mode {
+            grid-template-columns: 1fr 1fr;
+        }
+        @media (max-width: 992px) {
+            .ai-cards-container.dual-mode {
+                grid-template-columns: 1fr;
+            }
+        }
+        .ai-card-box {
+            background: var(--bg-hover);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .ai-card-box.edge-box {
+            border-top: 3px solid #10b981;
+        }
+        .ai-card-box.web-box {
+            border-top: 3px solid #8b5cf6;
+        }
+        .ai-mode-switch-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            background: var(--bg-hover);
+            padding: 4px 10px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--border-light);
+        }
+
         /* 4 mini line-chart tương ứng 4 cảm biến, tự đẩy điểm mới vào mỗi
         khi có dữ liệu MQTT tới (xem pushDashboardChartPoint trong script
            bên dưới), song song với việc cập nhật số ở .sensor-value. ==== */
@@ -381,7 +422,7 @@
                                         <span class="material-symbols-outlined">water_pump</span>
                                     </div>
                                     <label class="toggle-switch">
-                                        <input type="checkbox" id="sw-pump" onchange="toggleDevice('maybom', 'sw-pump')">
+                                        <input type="checkbox" id="sw-pump" autocomplete="off" onchange="toggleDevice('maybom', 'sw-pump')">
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
@@ -398,7 +439,7 @@
                                         <span class="material-symbols-outlined">wb_incandescent</span>
                                     </div>
                                     <label class="toggle-switch">
-                                        <input type="checkbox" id="sw-light" onchange="toggleDevice('denled', 'sw-light')">
+                                        <input type="checkbox" id="sw-light" autocomplete="off" onchange="toggleDevice('denled', 'sw-light')">
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
@@ -415,7 +456,7 @@
                                         <span class="material-symbols-outlined">wind_power</span>                                    
                                     </div>
                                     <label class="toggle-switch">
-                                        <input type="checkbox" id="sw-fan" onchange="toggleDevice('quatgio', 'sw-fan')">
+                                        <input type="checkbox" id="sw-fan" autocomplete="off" onchange="toggleDevice('quatgio', 'sw-fan')">
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
@@ -427,53 +468,128 @@
                         </div>
                     </div>
 
-                    <!-- Phân tích AI -->
+                    <!-- Phân tích & Giám sát AI -->
                     <div class="control-panel" id="ai-panel" style="margin-top: var(--space-6);">
-                        <div class="control-header">
-                            <div class="control-header-icon">
-                                <span class="material-symbols-outlined" style="font-size: 20px;">insights</span>
+                        <div class="control-header" style="flex-wrap: wrap; gap: var(--space-3);">
+                            <div style="display:flex; align-items:center; gap: var(--space-3);">
+                                <div class="control-header-icon">
+                                    <span class="material-symbols-outlined" style="font-size: 20px;">psychology</span>
+                                </div>
+                                <h3 style="margin:0;">Phân tích & Giám sát AI</h3>
                             </div>
-                            <h3>Phân tích AI <span style="font-weight:400; color:var(--text-muted); font-size:var(--text-sm);">· Edge (ESP32)</span></h3>
-                            <div style="margin-left:auto; display:flex; align-items:center; gap:var(--space-2);">
-                                <span id="ai-mode-badge" class="ai-badge ai-badge-idle">--</span>
-                                <span id="ai-status-badge" class="ai-badge ai-badge-idle">Đang chờ dữ liệu...</span>
+                            
+                            <!-- Nút gạt Bật/Tắt AI Web & Chọn chế độ -->
+                            <div style="margin-left:auto; display:flex; align-items:center; gap:var(--space-3); flex-wrap: wrap;">
+                                <div class="ai-mode-switch-wrap">
+                                    <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">AI Web:</span>
+                                    <label class="toggle-switch" style="margin: 0;" title="Bật/Tắt chế độ AI Web (Đối chứng)">
+                                        <input type="checkbox" id="sw-ai-web" onchange="toggleAiWebMode(this.checked)">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <span id="lbl-ai-web" style="font-size: 12px; font-weight: 700; color: #64748B;">TẮT</span>
+                                </div>
+                                <span id="ai-active-mode-badge" class="ai-badge ai-badge-normal">Chỉ AI IoT (Edge)</span>
                             </div>
                         </div>
 
                         <div style="padding: var(--space-6);">
-                            <!-- Lưới chỉ số -->
-                            <div class="ai-stats">
-                                <div>
-                                    <div class="ai-stat-label">Loại</div>
-                                    <div id="ai-stat-type" class="ai-stat-value" style="font-size: var(--text-lg);">--</div>
-                                </div>
-                                <div>
-                                    <div class="ai-stat-label">Mức độ</div>
-                                    <div id="ai-stat-severity" class="ai-stat-value">--</div>
-                                </div>
-                                <div>
-                                    <div class="ai-stat-label">Khung giờ</div>
-                                    <div id="ai-stat-window" class="ai-stat-value" style="font-size: var(--text-lg);">--</div>
-                                </div>
-                                <div>
-                                    <div class="ai-stat-label">Cập nhật</div>
-                                    <div id="ai-stat-time" class="ai-stat-value" style="font-size: var(--text-lg);">--:--:--</div>
-                                    <div class="ai-stat-sub" id="ai-stat-device">Thiết bị #--</div>
-                                </div>
-                            </div>
+                            <!-- Lưới thẻ phân tích AI (1 cột khi chỉ IoT, 2 cột khi bật Web để so sánh) -->
+                            <div class="ai-cards-container" id="ai-cards-wrap">
+                                
+                                <!-- Card 1: AI IoT (Edge - ESP32) -->
+                                <div class="ai-card-box edge-box" id="ai-edge-card">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-4); border-bottom: 1px solid var(--border-light); padding-bottom: var(--space-3);">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span class="material-symbols-outlined" style="color:#047857; font-size:20px;">memory</span>
+                                            <strong style="color:var(--text-primary); font-size:14px;">AI IoT (Edge - ESP32)</strong>
+                                            <span style="font-size:11px; background:#ECFDF5; color:#047857; padding:2px 6px; border-radius:4px; font-weight:600; border:1px solid #A7F3D0;">Tức thời (0ms)</span>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span id="ai-mode-badge" class="ai-badge ai-badge-idle">--</span>
+                                            <span id="ai-status-badge" class="ai-badge ai-badge-idle">Đang chờ dữ liệu...</span>
+                                        </div>
+                                    </div>
 
-                            <p id="ai-summary" class="ai-summary-text">
-                                Chưa có dữ liệu phân tích. Đảm bảo ESP32 đang publish kết quả AI.
-                            </p>
+                                    <!-- Lưới chỉ số Edge -->
+                                    <div class="ai-stats">
+                                        <div>
+                                            <div class="ai-stat-label">Loại</div>
+                                            <div id="ai-stat-type" class="ai-stat-value" style="font-size: var(--text-lg);">--</div>
+                                        </div>
+                                        <div>
+                                            <div class="ai-stat-label">Mức độ</div>
+                                            <div id="ai-stat-severity" class="ai-stat-value">--</div>
+                                        </div>
+                                        <div>
+                                            <div class="ai-stat-label">Khung giờ</div>
+                                            <div id="ai-stat-window" class="ai-stat-value" style="font-size: var(--text-lg);">--</div>
+                                        </div>
+                                        <div>
+                                            <div class="ai-stat-label">Cập nhật</div>
+                                            <div id="ai-stat-time" class="ai-stat-value" style="font-size: var(--text-lg);">--:--:--</div>
+                                            <div class="ai-stat-sub" id="ai-stat-device">Thiết bị #--</div>
+                                        </div>
+                                    </div>
 
-                            <div id="ai-recommendation" class="ai-reco-row" style="display:none;">
-                                <span id="ai-reco-chip" class="ai-reco-chip">--</span>
-                                <span id="ai-reco-msg" class="ai-reco-msg"></span>
-                            </div>
+                                    <p id="ai-summary" class="ai-summary-text" style="flex:1;">
+                                        Chưa có dữ liệu phân tích. Đảm bảo ESP32 đang publish kết quả AI.
+                                    </p>
 
-                            <div id="ai-action-box" class="ai-action-box" style="display:none;">
-                                <span class="material-symbols-outlined" style="font-size:18px;">bolt</span>
-                                <span id="ai-action-text"></span>
+                                    <div id="ai-recommendation" class="ai-reco-row" style="display:none;">
+                                        <span id="ai-reco-chip" class="ai-reco-chip">--</span>
+                                        <span id="ai-reco-msg" class="ai-reco-msg"></span>
+                                    </div>
+
+                                    <div id="ai-action-box" class="ai-action-box" style="display:none;">
+                                        <span class="material-symbols-outlined" style="font-size:18px;">bolt</span>
+                                        <span id="ai-action-text"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Card 2: AI Web (Server - Hybrid) (Ẩn khi tắt công tắc) -->
+                                <div class="ai-card-box web-box" id="ai-web-card" style="display:none;">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-4); border-bottom: 1px solid var(--border-light); padding-bottom: var(--space-3);">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span class="material-symbols-outlined" style="color:#6D28D9; font-size:20px;">cloud_sync</span>
+                                            <strong style="color:var(--text-primary); font-size:14px;">AI Web (Server - Hybrid)</strong>
+                                            <span style="font-size:11px; background:#EDE9FE; color:#6D28D9; padding:2px 6px; border-radius:4px; font-weight:600; border:1px solid #DDD6FE;">Mô hình đối chứng</span>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span id="ai-web-status-badge" class="ai-badge ai-badge-idle">Chờ bật tool...</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Lưới chỉ số Web -->
+                                    <div class="ai-stats">
+                                        <div>
+                                            <div class="ai-stat-label">Loại</div>
+                                            <div id="ai-web-stat-type" class="ai-stat-value" style="font-size: var(--text-lg);">--</div>
+                                        </div>
+                                        <div>
+                                            <div class="ai-stat-label">Mức độ</div>
+                                            <div id="ai-web-stat-severity" class="ai-stat-value">--</div>
+                                        </div>
+                                        <div>
+                                            <div class="ai-stat-label">Độ trễ đo được</div>
+                                            <div id="ai-web-stat-latency" class="ai-stat-value" style="font-size: var(--text-lg); color:#6D28D9;">--</div>
+                                        </div>
+                                        <div>
+                                            <div class="ai-stat-label">Cập nhật</div>
+                                            <div id="ai-web-stat-time" class="ai-stat-value" style="font-size: var(--text-lg);">--:--:--</div>
+                                            <div class="ai-stat-sub">Server daemon</div>
+                                        </div>
+                                    </div>
+
+                                    <p id="ai-web-summary" class="ai-summary-text" style="flex:1;">
+                                        AI Web đang chờ kết nối từ tool daemon (web_ai_subscriber.php).
+                                    </p>
+
+                                    <div id="ai-web-recommendation" class="ai-reco-row" style="display:none;">
+                                        <span id="ai-web-reco-chip" class="ai-reco-chip" style="background:#EDE9FE; color:#6D28D9;">--</span>
+                                        <span id="ai-web-reco-msg" class="ai-reco-msg"></span>
+                                    </div>
+                                </div>
+
                             </div>
 
                             <div class="ai-table-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -491,9 +607,9 @@
                                     <thead>
                                         <tr>
                                             <th style="width:18%;">Thời gian</th>
-                                            <th style="width:22%;">Tên bất thường</th>
-                                            <th style="width:15%;">Cảm biến</th>
-                                            <th style="width:15%;">Giá trị</th>
+                                            <th style="width:24%;">Nguồn & Tên bất thường</th>
+                                            <th style="width:14%;">Cảm biến</th>
+                                            <th style="width:14%;">Giá trị</th>
                                             <th style="width:15%;">Mức độ</th>
                                             <th style="width:15%;">Trạng thái</th>
                                         </tr>
@@ -541,6 +657,9 @@
                 
                 if (json.status === 'success') {
                     const { device, sensor } = json.data;
+                    if (json.data.device_id) {
+                        window.cachedDeviceId = json.data.device_id;
+                    }
 
                     // Update sensor values
                     if (sensor) {
@@ -568,7 +687,7 @@
             const statusText = document.getElementById(idText);
             
             if (checkbox && statusText) {
-                const isOn = (val == 1);
+                const isOn = (val === 1 || val === '1' || val === true);
                 checkbox.checked = isOn;
                 statusText.innerText = isOn ? "Đang chạy" : "Đã tắt";
                 statusText.className = isOn ? "control-status active" : "control-status";
@@ -651,7 +770,7 @@ const DASHBOARD_CHART_Y_RANGE = {
     [SENSOR_IDS.TEMPERATURE]: { min: 15,   max: 45 },     // °C
     [SENSOR_IDS.HUMIDITY]:    { min: 40,   max: 100 },     // %
     [SENSOR_IDS.PH]:          { min: 500,    max: 2500 },   // Mực nước
-    [SENSOR_IDS.LIGHT]:       { min: 0,    max: 2500 },  // Lux
+    [SENSOR_IDS.LIGHT]:       { min: 0,    max: 3500 },  // Lux
 };
 
 window.dashboardCharts = {};
@@ -837,24 +956,91 @@ async function loadAIHistory() {
         renderDashboardAlertTable([]);
     }
 
-    // 2. Nạp kết quả phân tích AI gần nhất để hiển thị khung tóm tắt trên cùng
+    // 2. Nạp kết quả phân tích AI IoT (Edge) gần nhất
     try {
-        const historyRes = await fetch(`${API.AI_HISTORY}?user_id=${userId || ''}&limit=1`);
+        const historyRes = await fetch(`${API.AI_HISTORY}?user_id=${userId || ''}&engine=edge&limit=1`);
         const historyJson = await historyRes.json();
         if (historyJson.status === 'success' && Array.isArray(historyJson.data) && historyJson.data.length > 0) {
             initAILatestStatusFromDB(historyJson.data[0]);
         }
     } catch (e) {
-        console.warn('Chưa nạp được trạng thái AI gần nhất:', e);
+        console.warn('Chưa nạp được trạng thái AI Edge gần nhất:', e);
+    }
+
+    // 3. Nạp kết quả phân tích AI Web gần nhất (nếu đang bật)
+    if (window.isAiWebEnabled) {
+        loadAIWebHistory();
+    }
+}
+
+async function loadAIWebHistory() {
+    const userId = getUserId();
+    try {
+        const res = await fetch(`${API.AI_HISTORY}?user_id=${userId || ''}&engine=web&limit=1`);
+        const json = await res.json();
+        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+            initAIWebLatestStatusFromDB(json.data[0]);
+        }
+    } catch (e) {
+        console.warn('Chưa nạp được trạng thái AI Web gần nhất:', e);
+    }
+}
+
+// Bật/Tắt chế độ AI Web đối chứng trực tiếp trên Dashboard
+function toggleAiWebMode(enabled) {
+    window.isAiWebEnabled = !!enabled;
+    localStorage.setItem('ai_web_enabled', enabled ? '1' : '0');
+
+    const cardsWrap = document.getElementById('ai-cards-wrap');
+    const webCard = document.getElementById('ai-web-card');
+    const lbl = document.getElementById('lbl-ai-web');
+    const modeBadge = document.getElementById('ai-active-mode-badge');
+    const sw = document.getElementById('sw-ai-web');
+
+    if (sw) sw.checked = !!enabled;
+
+    if (enabled) {
+        if (cardsWrap) cardsWrap.classList.add('dual-mode');
+        if (webCard) webCard.style.display = 'flex';
+        if (lbl) { lbl.innerText = 'BẬT'; lbl.style.color = '#10B981'; }
+        if (modeBadge) {
+            modeBadge.className = 'ai-badge ai-badge-warning';
+            modeBadge.innerText = 'So sánh Đối chứng (IoT & Web)';
+        }
+        loadAIWebHistory();
+    } else {
+        if (cardsWrap) cardsWrap.classList.remove('dual-mode');
+        if (webCard) webCard.style.display = 'none';
+        if (lbl) { lbl.innerText = 'TẮT'; lbl.style.color = '#64748B'; }
+        if (modeBadge) {
+            modeBadge.className = 'ai-badge ai-badge-normal';
+            modeBadge.innerText = 'Chỉ AI IoT (Edge)';
+        }
+    }
+
+    if (typeof mqttPublishAiWebEnable === 'function') {
+        mqttPublishAiWebEnable(enabled);
     }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Reset ngay trạng thái checkbox tránh browser tự khôi phục form cache
+    ['sw-pump', 'sw-light', 'sw-fan'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+    });
+
     initDashboardCharts();
-    await loadDeviceId();
+    
+    // Nạp dữ liệu cảm biến & trạng thái thiết bị từ DB ngay lập tức (1 lần duy nhất)
+    await loadData();
+
+    // Khởi tạo công tắc AI Web từ localStorage (mặc định tắt nếu chưa bật)
+    const savedAiWeb = localStorage.getItem('ai_web_enabled') === '1';
+    toggleAiWebMode(savedAiWeb);
+
     loadAIHistory();
     connectMQTT();
-    loadData();
 });
     </script>
 </body>

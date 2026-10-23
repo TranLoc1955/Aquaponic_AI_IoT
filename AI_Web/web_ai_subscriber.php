@@ -39,7 +39,7 @@ const DEVICE_ID = 18;
 const API_NHAN_KET_QUA = 'http://localhost/Test/API/ai/nhan_ket_qua.php';
 
 // true  = AI Web được publish lệnh MQTT điều khiển thiết bị THẬT (đúng yêu cầu ban đầu)
-// false = chỉ phân tích + ghi log/DB, không đụng thiết bị (bật lại nếu muốn tách biệt an toàn với Edge AI khi demo)
+// false = chỉ phân tích + ghi log/DB, không đụng thiết bị (an toàn đối chứng với Edge AI)
 const CHO_PHEP_DIEU_KHIEN_THAT = true;
 
 // ── Lớp 2: Python (tra luật học từ dữ liệu — xem python/case_service.py) ──
@@ -51,7 +51,7 @@ const CASE_TIMEOUT_MS     = 1500;
 
 // Mặc định false: lớp 2 CHỈ hiển thị phân tích + gợi ý thiết bị, KHÔNG tự điều khiển.
 // true = lệnh khuyến nghị của lớp 2 sẽ thay lệnh mặc định của lớp 1 (chỉ bật khi đã kiểm chứng).
-const CHO_PHEP_LOP2_DIEU_KHIEN = false;
+const CHO_PHEP_LOP2_DIEU_KHIEN = true;
 
 $settings = (new ConnectionSettings)
     ->setUsername($username)
@@ -62,18 +62,35 @@ $settings = (new ConnectionSettings)
 
 $client = new MqttClient($host, $port, $clientId);
 
-try {
-    $client->connect($settings, true);
-    echo "[" . date('H:i:s') . "] ✅ AI Web đã kết nối HiveMQ!\n";
-} catch (Exception $e) {
-    echo "❌ Lỗi kết nối: " . $e->getMessage() . "\n";
+$maxRetries = 5;
+$retryDelay = 3;
+$connected  = false;
+
+for ($lanThu = 1; $lanThu <= $maxRetries; $lanThu++) {
+    try {
+        echo "[" . date('H:i:s') . "] 🔄 Đang kết nối HiveMQ Cloud (lần {$lanThu}/{$maxRetries})...\n";
+        $client->connect($settings, true);
+        echo "[" . date('H:i:s') . "] ✅ AI Web đã kết nối HiveMQ thành công!\n";
+        $connected = true;
+        break;
+    } catch (Exception $e) {
+        echo "[" . date('H:i:s') . "] ⚠️ Lỗi kết nối (lần {$lanThu}/{$maxRetries}): " . $e->getMessage() . "\n";
+        if ($lanThu < $maxRetries) {
+            echo "[" . date('H:i:s') . "] ⏳ Thử lại sau {$retryDelay}s...\n";
+            sleep($retryDelay);
+        }
+    }
+}
+
+if (!$connected) {
+    echo "❌ Không thể kết nối HiveMQ sau {$maxRetries} lần thử.\n";
+    echo "👉 Gợi ý: Hãy kiểm tra mạng Internet hoặc DNS máy tính.\n";
     exit(1);
 }
 
 /**
  * Publish lệnh điều khiển xuống ESP32 — dùng ĐÚNG topic/format mà dashboard
- * (Frontend/js/mqtt.js -> mqttPublishControl) đang dùng, nên ESP32 không cần
- * sửa firmware gì thêm, vẫn nhận lệnh y như khi người dùng bấm nút trên web.
+ * (Frontend/js/mqtt.js -> mqttPublishControl) đang dùng.
  */
 function publishDieuKhien(MqttClient $client, string $device, string $command): void
 {
@@ -83,24 +100,17 @@ function publishDieuKhien(MqttClient $client, string $device, string $command): 
 }
 
 /**
- * Publish kết quả phân tích lên MQTT topic "aquaponic/ai/result/<device_id>"
- * — ĐÚNG topic mà trình duyệt (Frontend/js/mqtt.js) đang subscribe để cập
- * nhật LIVE khối tóm tắt AI + bảng "Lịch sử phân tích" trên Dashboard (xem
- * hàm renderAIInsight()). Đây chính là phần còn thiếu khiến Dashboard trước
- * đây không tự nhảy realtime với AI Web — trước giờ chỉ có AI Edge (ESP32)
- * publish lên topic này, còn AI Web chỉ âm thầm lưu DB qua HTTP nên trình
- * duyệt không hề hay biết có kết quả mới cho tới khi F5 lại trang.
+ * Publish kết quả phân tích lên MQTT topic RIÊNG "aquaponic/ai/web/result/<device_id>"
+ * để KHÔNG bị ghi đè hay lẫn lộn với kết quả của AI IoT (Edge ESP32) trên topic "aquaponic/ai/result/<device_id>".
  */
 function publishKetQuaAILenMQTT(MqttClient $client, array $payload): void
 {
-    $topic = 'aquaponic/ai/result/' . DEVICE_ID;
+    $topic = 'aquaponic/ai/web/result/' . DEVICE_ID;
     $client->publish($topic, json_encode($payload, JSON_UNESCAPED_UNICODE), 0);
 }
 
 /**
- * Xác định khung giờ Ban ngày/Ban đêm theo giờ hệ thống hiện tại — để khớp
- * với AI_TIME_WINDOW_LABELS ở Frontend/js/mqtt.js (chỉ hiểu 'day'/'night',
- * trước đây gửi 'realtime' nên frontend không map được, hiện "--").
+ * Xác định khung giờ Ban ngày/Ban đêm theo giờ hệ thống hiện tại.
  */
 function xacDinhKhungGio(): string
 {
@@ -109,9 +119,7 @@ function xacDinhKhungGio(): string
 }
 
 /**
- * Gửi kết quả phân tích về API/ai/nhan_ket_qua.php để lưu DB — dùng CHUNG
- * bảng ai_ket_qua/ai_canhbao với AI Edge, chỉ khác giá trị "engine", nên
- * dashboard/trang lịch sử có thể lọc & so sánh 2 nguồn cạnh nhau.
+ * Gửi kết quả phân tích về API/ai/nhan_ket_qua.php để lưu DB.
  */
 function guiKetQuaAI(array $payload): void
 {
@@ -143,9 +151,7 @@ function guiKetQuaAI(array $payload): void
 }
 
 /**
- * Gọi service Python tìm tình huống tương tự. Trả về mảng kết quả hoặc null
- * nếu service không chạy / lỗi / quá hạn — KHÔNG bao giờ ném lỗi, để lớp 1
- * (luật) vẫn chạy bình thường khi lớp 2 có vấn đề.
+ * Gọi service Python tìm tình huống tương tự.
  */
 function goiCaseSearch(array $sv): ?array
 {
@@ -163,14 +169,42 @@ function goiCaseSearch(array $sv): ?array
     curl_close($ch);
 
     if ($res === false) {
-        echo "[" . date('H:i:s') . "] ⚠️ Case search không phản hồi ({$err}) — dùng kết quả luật.\n";
+        // Rút gọn thông báo nếu không mở service Lớp 2
+        static $lastCaseErrNotice = 0;
+        if (time() - $lastCaseErrNotice >= 30) {
+            echo "[" . date('H:i:s') . "] ℹ️ Lớp 2 Case Search chưa mở (127.0.0.1:5001) -> chạy chuẩn Lớp 1 (Rule-based).\n";
+            $lastCaseErrNotice = time();
+        }
         return null;
     }
     $json = json_decode($res, true);
     return (is_array($json) && ($json['status'] ?? '') === 'success') ? $json : null;
 }
 
-$client->subscribe('aquaponic/sensor/data', function ($topic, $message) use ($client) {
+// Trạng thái Bật/Tắt từ Dashboard (mặc định bật khi khởi chạy script)
+$aiWebEnabled = true;
+
+// 🎛️ Lắng nghe lệnh Bật/Tắt từ giao diện Dashboard (topic: aquaponic/ai/web/enable)
+$client->subscribe('aquaponic/ai/web/enable', function ($topic, $message) use (&$aiWebEnabled) {
+    $d = json_decode($message, true);
+    if (isset($d['enabled'])) {
+        $aiWebEnabled = (bool)$d['enabled'];
+        $trangThai = $aiWebEnabled ? 'ĐƯỢC BẬT (Đang phân tích & gửi đối chứng)' : 'ĐÃ TẮT (Tạm dừng, chỉ chạy AI IoT)';
+        echo "[" . date('H:i:s') . "] 🎛️ Công tắc từ Web: AI Web -> {$trangThai}\n";
+    }
+}, 0);
+
+$client->subscribe('aquaponic/sensor/data', function ($topic, $message) use ($client, &$aiWebEnabled) {
+    if (!$aiWebEnabled) {
+        // AI Web đang tạm dừng theo lệnh từ Dashboard -> thông báo ra console mỗi 15s để người dùng biết
+        static $lastPauseNotice = 0;
+        if (time() - $lastPauseNotice >= 15) {
+            echo "[" . date('H:i:s') . "] ⏸️ ĐANG TẠM DỪNG: Công tắc AI Web trên Dashboard đang TẮT. Hãy gạt sang BẬT trên giao diện Web Dashboard để kích hoạt phân tích!\n";
+            $lastPauseNotice = time();
+        }
+        return;
+    }
+
     // t0: thời điểm AI Web NHẬN được dữ liệu (đã đi 1 vòng ESP32 -> broker -> đây)
     $t0 = microtime(true);
 
