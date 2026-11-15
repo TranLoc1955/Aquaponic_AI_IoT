@@ -1,22 +1,19 @@
 <?php
 /**
- * AI_Web/engine.php — LỚP 1 của AI Web (ngưỡng mặc định trong code).
- * ------------------------------------------------------------
- * Nhiệm vụ:
- *   1. Quy từng giá trị cảm biến về mức: low | mid | high | fault (theo thresholds.json).
- *   2. Với mức lệch khỏi 'mid', tra phan_tich_mac_dinh (thresholds.json) để lấy
- *      phân tích + hành động mặc định.
- *   3. Quyết định có cần chuyển sang LỚP 2 (Python, tra luật học từ dữ liệu) không:
- *        - từ min_abnormal_sensors cảm biến trở lên cùng lệch khỏi 'mid', HOẶC
- *        - có cảm biến lệch mà ngưỡng mặc định KHÔNG có phân tích cho mức đó (null).
- *
- * NGƯỠNG chỉ nằm ở AI_Web/thresholds.json (dùng chung với python/).
- * Severity: 'normal' | 'warning' | 'danger' (khớp Frontend/js/mqtt.js).
+ * AI_Web/engine.php — ĐỒNG BỘ 100% LOGIC VỚI IOT ESP32 VÀ MAIN.PY
+ * ------------------------------------------------------------------------------------------
+ * Chu trình phân tích thống nhất:
+ *   1. Kiểm tra phạm vi vật lý hợp lệ (checkPhysicalRange): bắt lỗi cảm biến phần cứng (sensor_fault, danger).
+ *   2. Kiểm tra ngưỡng vận hành cây trồng (Agronomic Breaks): phân loại Thấp/Bình thường/Cao.
+ *      - Lệch ngưỡng: báo bất thường môi trường (environment, warning/danger), tóm tắt rõ cảm biến,
+ *        tự động kích hoạt hành động thiết bị (Quạt/Bơm/Đèn) và khuyến nghị xử lý.
+ *   3. Kiểm tra bổ trợ thống kê 3-Sigma & Delta (theo Day/Night).
+ *   4. Khi tất cả chỉ số tối ưu: báo bình thường (normal, none), không phát sinh hành động thừa.
  */
 
 const WEB_AI_SENSORS = ['nhiet_do', 'do_am', 'anh_sang', 'muc_nuoc'];
 
-/** Đọc thresholds.json (cache static, chỉ đọc đĩa 1 lần). */
+/** Đọc thresholds.json (cache static). */
 function layNguongWebAI(): array
 {
     static $cache = null;
@@ -24,14 +21,32 @@ function layNguongWebAI(): array
         $path  = __DIR__ . '/thresholds.json';
         $raw   = @file_get_contents($path);
         $cache = $raw !== false ? json_decode($raw, true) : null;
-        if (!is_array($cache) || !isset($cache['sensors'], $cache['phan_tich_mac_dinh'])) {
+        if (!is_array($cache) || !isset($cache['physical_ranges'], $cache['sensors'], $cache['phan_tich_mac_dinh'])) {
             throw new RuntimeException("Không đọc được file ngưỡng hợp lệ: {$path}");
         }
     }
     return $cache;
 }
 
-/** Quy 1 giá trị về mức: 'fault' | 'low' | 'mid' | 'high' (giống python/core.py). */
+/**
+ * Kiểm tra phạm vi vật lý hợp lý của cảm biến (khớp checkPhysicalRange() trong ESP32 & main.py)
+ */
+function kiemTraPhamViVatLy(float $t, float $h, float $water, float $light, array $ranges): bool
+{
+    if ($t < $ranges['nhiet_do']['min'] || $t > $ranges['nhiet_do']['max']) return false;
+    if ($h < $ranges['do_am']['min'] || $h > $ranges['do_am']['max']) return false;
+    if ($light < $ranges['anh_sang']['min'] || $light > $ranges['anh_sang']['max']) return false;
+    // Bỏ qua min của mực nước để không xung đột với ngưỡng bơm cạn (y như ESP32)
+    if ($water > $ranges['muc_nuoc']['max']) return false;
+    // Cảm biến nhiệt độ, độ ẩm phải > 0
+    if ($t <= 0 || $h <= 0) return false;
+
+    return true;
+}
+
+/**
+ * Phân loại mức giá trị cảm biến: low | mid | high | fault
+ */
 function xacDinhMuc(array $sensorCfg, float $val): string
 {
     if ($val <= $sensorCfg['fault_at_or_below']) return 'fault';
@@ -39,116 +54,265 @@ function xacDinhMuc(array $sensorCfg, float $val): string
     foreach ($sensorCfg['breaks'] as $b) {
         if ($val >= $b) $idx++;
     }
-    return ['low', 'mid', 'high'][$idx];
+    return ['low', 'mid', 'high'][$idx] ?? 'mid';
 }
 
 /**
- * Phân tích 1 bộ giá trị cảm biến.
- * Trả về cấu trúc khớp JSON contract của API/ai/nhan_ket_qua.php, cộng thêm:
- *   'levels'        => [sensor => mức]
- *   'abnormal_levels' => chỉ các cảm biến lệch khỏi 'mid'
- *   'commands'      => [device => 'ON'|'OFF'] lệnh mặc định của lớp 1
- *   'can_case_search' + 'ly_do_case_search' => có cần gọi lớp 2 không và vì sao
+ * Tính toán Thâm hụt áp suất hơi nước VPD (Tetens Equation)
+ */
+function tinhVPD(float $t, float $h): float
+{
+    $svp = 0.61078 * exp((17.27 * $t) / ($t + 237.3));
+    $avp = $svp * ($h / 100.0);
+    $vpd = $svp - $avp;
+    return max(0.0, $vpd);
+}
+
+/**
+ * Phân tích bộ giá trị cảm biến — Đồng bộ 100% với AI IoT (Edge ESP32 / main.py)
  *
  * @param array $sv ['nhiet_do'=>..,'do_am'=>..,'anh_sang'=>..,'muc_nuoc'=>..]
  */
 function phanTichWebAI(array $sv): array
 {
     $cfg = layNguongWebAI();
+    $ranges = $cfg['physical_ranges'];
+    $sensorsCfg = $cfg['sensors'];
+    $defaultAnalysis = $cfg['phan_tich_mac_dinh'];
 
-    $levels = [];            // mọi cảm biến có dữ liệu
-    $matches = [];           // cảm biến lệch khỏi 'mid'
-    $khongCoPhanTich = [];   // cảm biến lệch nhưng ngưỡng mặc định không có phân tích
+    // Theo dõi mẫu trước đó để tính delta (giống ESP32 hasPreviousSample)
+    static $prevSamples = [];
 
-    foreach (WEB_AI_SENSORS as $key) {
-        if (!isset($sv[$key]) || $sv[$key] === null || $sv[$key] === '') continue;
-        $val = (float) $sv[$key];
-        $muc = xacDinhMuc($cfg['sensors'][$key], $val);
-        $levels[$key] = $muc;
-        if ($muc === 'mid') continue;
-
-        $pt = $cfg['phan_tich_mac_dinh'][$key][$muc] ?? null;
-        $matches[$key] = [
-            'level' => $muc, 'value' => $val, 'pt' => $pt,
-            'label' => $cfg['sensors'][$key]['label'], 'unit' => $cfg['sensors'][$key]['unit'],
-        ];
-        if ($pt === null) $khongCoPhanTich[] = $key;
-    }
-
-    // ── Không có gì bất thường ──
-    if (empty($matches)) {
-        return [
-            'anomaly_type' => 'none', 'severity' => 'normal', 'confidence' => 'certain',
-            'abnormal_sensors' => [], 'abnormal_levels' => [], 'levels' => $levels,
-            'commands' => [], 'can_case_search' => false, 'ly_do_case_search' => null,
-            'summary' => 'Tất cả chỉ số đang trong ngưỡng bình thường.',
-            'action_taken' => null,
-            'recommendation' => ['action' => 'NONE', 'message' => 'Không cần can thiệp, hệ thống đang ổn định.'],
-        ];
-    }
-
-    // ── Tóm tắt + lệnh mặc định ──
-    $summaryParts = [];
-    $levelsAbn    = [];
-    $commands     = [];       // device => ['command'=>, 'reason'=>, 'prio'=>]
-    $severity     = 'warning';
-    $coLoi        = false;
-    foreach ($matches as $key => $m) {
-        $levelsAbn[$key] = $m['level'];
-        $tenMuc = $m['pt']['title'] ?? ['low' => 'Thấp', 'high' => 'Cao'][$m['level']] ?? $m['level'];
-        $summaryParts[] = sprintf('%s: %s%s (%s)', $m['label'], rtrim(rtrim(number_format($m['value'], 1, '.', ''), '0'), '.'), $m['unit'], $tenMuc);
-        if ($m['level'] === 'fault') $coLoi = true;
-        if ($m['pt']) {
-            if ($m['pt']['severity'] === 'danger') $severity = 'danger';
-            if ($m['pt']['device'] && $m['pt']['command']) {
-                // 'fault' ưu tiên cao nhất (an toàn), rồi theo thứ tự cảm biến
-                $prio = $m['level'] === 'fault' ? 2 : 1;
-                $dev  = $m['pt']['device'];
-                if (!isset($commands[$dev]) || $prio > $commands[$dev]['prio']) {
-                    $commands[$dev] = ['command' => $m['pt']['command'], 'reason' => $m['pt']['reason'], 'prio' => $prio];
-                }
-            }
-        }
-    }
-
-    // action_taken chính thức (DB chỉ lưu 1 dòng): ưu tiên lệnh an toàn/mực nước trước
-    $actionTaken = null;
-    foreach (['maybom', 'quatgio', 'denled'] as $dev) {
-        if (isset($commands[$dev])) {
-            $actionTaken = ['device' => $dev, 'command' => $commands[$dev]['command'], 'reason' => $commands[$dev]['reason']];
+    // Kiểm tra cảm biến đọc lỗi (null, rỗng hoặc âm)
+    $sensorReadFault = false;
+    foreach (WEB_AI_SENSORS as $k) {
+        if (!isset($sv[$k]) || $sv[$k] === null || $sv[$k] === '' || (float)$sv[$k] < 0) {
+            $sensorReadFault = true;
             break;
         }
     }
-    $lenh = [];
-    foreach ($commands as $dev => $c) $lenh[$dev] = $c['command'];
 
-    // ── Có cần lớp 2 không? ──
-    $nAbn = count($matches);
-    $minAbn = (int) ($cfg['case_trigger']['min_abnormal_sensors'] ?? 2);
-    $canCase = false; $lyDo = null;
-    if ($nAbn >= $minAbn) {
-        $canCase = true;
-        $lyDo = "{$nAbn} cảm biến cùng lệch ngưỡng";
-    } elseif (!empty($khongCoPhanTich)) {
-        $canCase = true;
-        $lyDo = 'ngưỡng mặc định chưa có phân tích cho: ' . implode(', ', $khongCoPhanTich);
+    $t     = (float) ($sv['nhiet_do'] ?? 0);
+    $h     = (float) ($sv['do_am'] ?? 0);
+    $light = (float) ($sv['anh_sang'] ?? 0);
+    $water = (float) ($sv['muc_nuoc'] ?? 0);
+
+    $rangeError    = !kiemTraPhamViVatLy($t, $h, $water, $light, $ranges);
+    $physicalError = $rangeError || $sensorReadFault;
+
+    // Bản đồ tên trường chuẩn giữa Web và IoT
+    $fieldMap = [
+        'nhiet_do' => 'nhietdo',
+        'do_am'    => 'do_am',
+        'anh_sang' => 'anhsang',
+        'muc_nuoc' => 'muc_nuoc',
+    ];
+
+    // =========================================================================
+    // 1. TRƯỜNG HỢP LỖI CẢM BIẾN / VƯỢT PHẠM VI VẬT LÝ (KHỚP ESP32 AI_SENSOR_ERROR)
+    // =========================================================================
+    if ($physicalError) {
+        $abnormalSensors = [];
+        if ($t < $ranges['nhiet_do']['min'] || $t > $ranges['nhiet_do']['max'] || $t <= 0) $abnormalSensors[] = 'nhietdo';
+        if ($h < $ranges['do_am']['min'] || $h > $ranges['do_am']['max'] || $h <= 0) $abnormalSensors[] = 'do_am';
+        if ($light < $ranges['anh_sang']['min'] || $light > $ranges['anh_sang']['max']) $abnormalSensors[] = 'anhsang';
+        if ($water > $ranges['muc_nuoc']['max']) $abnormalSensors[] = 'muc_nuoc';
+
+        $faultLevels = [];
+        foreach (WEB_AI_SENSORS as $k) {
+            $faultLevels[$k] = in_array($fieldMap[$k], $abnormalSensors) ? 'fault' : 'mid';
+        }
+
+        return [
+            'anomaly_type'     => 'sensor_fault',
+            'severity'         => 'danger',
+            'confidence'       => 'certain',
+            'abnormal_sensors' => $abnormalSensors,
+            'abnormal_levels'  => $faultLevels,
+            'levels'           => $faultLevels,
+            'commands'         => [],
+            'can_case_search'  => false,
+            'ly_do_case_search'=> null,
+            'summary'          => $sensorReadFault
+                ? 'Khong doc duoc cam bien (DHT22 hoac BH1750), nghi ngo cam bien loi.'
+                : 'Gia tri cam bien vuot pham vi vat ly cho phep, nghi ngo cam bien loi.',
+            'action_taken'     => null,
+            'recommendation'   => [
+                'action'  => 'CHECK_SENSOR',
+                'message' => 'Nen kiem tra day ket noi va nguon cap cua cam bien.',
+            ],
+        ];
     }
 
+    // =========================================================================
+    // 2. KIỂM TRA THEO NGƯỠNG VẬN HÀNH NÔNG HỌC (BREAKS — ĐỒNG BỘ MAIN.PY & ESP32)
+    // =========================================================================
+    $levels = [];
+    $abnormalLevels = [];
+    $summaryParts = [];
+    $abnormalSensors = [];
+    $cmds = [];
+    $reasons = [];
+    $severity = 'normal';
+
+    foreach (WEB_AI_SENSORS as $k) {
+        $val = (float) ($sv[$k] ?? 0);
+        $sc  = $sensorsCfg[$k];
+        $lv  = xacDinhMuc($sc, $val);
+        $levels[$k] = $lv;
+
+        if ($lv === 'mid') {
+            continue;
+        }
+
+        $pt = $defaultAnalysis[$k][$lv] ?? null;
+        $title = $pt['title'] ?? ($lv === 'low' ? 'Thấp' : 'Cao');
+        $valFmt = (round($val) == $val) ? (int)$val : round($val, 1);
+        $summaryParts[] = "{$sc['label']}: {$valFmt}{$sc['unit']} ({$title})";
+        $abnormalLevels[$k] = $lv;
+        $abnormalSensors[] = $fieldMap[$k];
+
+        $ptSev = $pt['severity'] ?? 'warning';
+        if ($ptSev === 'danger' || $severity === 'danger') {
+            $severity = 'danger';
+        } else {
+            $severity = 'warning';
+        }
+
+        if ($pt && !empty($pt['device']) && !empty($pt['command'])) {
+            $dev = $pt['device'];
+            $cmds[$dev] = $pt['command'];
+            $reasons[$dev] = $pt['reason'];
+        }
+    }
+
+    // Xác định action_taken từ lệnh điều khiển
+    $actionTaken = null;
+    foreach (['quatgio', 'maybom', 'denled'] as $d) {
+        if (isset($cmds[$d])) {
+            $actionTaken = ['device' => $d, 'command' => $cmds[$d], 'reason' => $reasons[$d]];
+            break;
+        }
+    }
+
+    // =========================================================================
+    // 3. NẾU CÓ BẤT THƯỜNG MÔI TRƯỜNG THEO NGƯỠNG
+    // =========================================================================
+    if (!empty($abnormalLevels)) {
+        if (in_array('muc_nuoc', $abnormalSensors)) {
+            $recoAction = 'CHECK_WATER_LEVEL';
+            $recoMsg    = $reasons['maybom'] ?? 'Nên kiểm tra bồn chứa và hệ thống cấp nước.';
+        } elseif (in_array('nhietdo', $abnormalSensors) || in_array('do_am', $abnormalSensors)) {
+            $recoAction = 'CHECK_ENVIRONMENT';
+            $recoMsg    = $reasons['quatgio'] ?? 'Nên kiểm tra môi trường khu vực trồng (quạt, mái che).';
+        } elseif (in_array('anhsang', $abnormalSensors)) {
+            $recoAction = 'CHECK_LIGHTING';
+            $recoMsg    = $reasons['denled'] ?? 'Nên kiểm tra đèn chiếu sáng hoặc vị trí cảm biến ánh sáng.';
+        } else {
+            $recoAction = 'CHECK_ENVIRONMENT';
+            $recoMsg    = 'Theo dõi thêm các chỉ số đang lệch ngưỡng.';
+        }
+
+        return [
+            'anomaly_type'     => 'environment',
+            'severity'         => $severity,
+            'confidence'       => 'certain',
+            'abnormal_sensors' => $abnormalSensors,
+            'abnormal_levels'  => $abnormalLevels,
+            'levels'           => $levels,
+            'commands'         => $cmds,
+            'can_case_search'  => count($abnormalSensors) >= 2,
+            'ly_do_case_search'=> count($abnormalSensors) . ' cảm biến lệch ngưỡng vận hành',
+            'summary'          => implode(' | ', $summaryParts),
+            'action_taken'     => $actionTaken,
+            'recommendation'   => [
+                'action'  => $recoAction,
+                'message' => $recoMsg,
+            ],
+        ];
+    }
+
+    // =========================================================================
+    // 4. KIỂM TRA BỔ TRỢ THỐNG KÊ (3-SIGMA & DELTA NẾU CÓ)
+    // =========================================================================
+    $hour = (int) date('H');
+    $window = ($hour >= 6 && $hour < 18) ? 'day' : 'night';
+    $wThresh = $cfg['statistical_thresholds'][$window] ?? null;
+
+    $statAbn = [];
+    if ($wThresh) {
+        $mapVals = [
+            'nhiet_do' => ['field' => 'nhietdo',  'label' => 'nhiệt độ',  'val' => $t],
+            'do_am'    => ['field' => 'do_am',    'label' => 'độ ẩm',     'val' => $h],
+            'muc_nuoc' => ['field' => 'muc_nuoc', 'label' => 'mực nước',  'val' => $water],
+            'anh_sang' => ['field' => 'anhsang',  'label' => 'ánh sáng',  'val' => $light],
+        ];
+        foreach ($mapVals as $k => $m) {
+            if (!isset($wThresh[$k]) || ($wThresh[$k]['sample_count'] ?? 1) == 0) continue;
+            $th = $wThresh[$k];
+            $val = $m['val'];
+            $lower = $th['mean'] - 3.0 * $th['std'];
+            $upper = $th['mean'] + 3.0 * $th['std'];
+            if ($val < $lower || $val > $upper) {
+                $statAbn[] = $k;
+            }
+            if (isset($prevSamples[$k])) {
+                $delta = $val - $prevSamples[$k];
+                $dLower = $th['delta_mean'] - 3.0 * $th['delta_std'];
+                $dUpper = $th['delta_mean'] + 3.0 * $th['delta_std'];
+                if ($delta < $dLower || $delta > $dUpper) {
+                    $statAbn[] = $k;
+                }
+            }
+            $prevSamples[$k] = $val;
+        }
+    }
+
+    if (!empty($statAbn)) {
+        $statAbn = array_unique($statAbn);
+        $abnLabels = [];
+        $abnFields = [];
+        foreach ($statAbn as $k) {
+            $abnLabels[] = $sensorsCfg[$k]['label'];
+            $abnFields[] = $fieldMap[$k];
+        }
+        return [
+            'anomaly_type'     => 'environment',
+            'severity'         => 'warning',
+            'confidence'       => 'uncertain',
+            'abnormal_sensors' => $abnFields,
+            'abnormal_levels'  => $levels,
+            'levels'           => $levels,
+            'commands'         => [],
+            'can_case_search'  => true,
+            'ly_do_case_search'=> 'Lệch ngưỡng thống kê 3-sigma (' . implode(', ', $abnLabels) . ')',
+            'summary'          => 'Dữ liệu dao động đáng kể so với thống kê (' . implode(', ', $abnLabels) . ').',
+            'action_taken'     => null,
+            'recommendation'   => [
+                'action'  => 'CHECK_ENVIRONMENT',
+                'message' => 'Nên theo dõi khu vực trồng, có biến động nhỏ so với dữ liệu học.',
+            ],
+        ];
+    }
+
+    // =========================================================================
+    // 5. TRƯỜNG HỢP MỌI CHỈ SỐ BÌNH THƯỜNG (NORMAL)
+    // =========================================================================
     return [
-        'anomaly_type'     => $coLoi ? 'sensor_fault' : 'environment',
-        'severity'         => $severity,
+        'anomaly_type'     => 'none',
+        'severity'         => 'normal',
         'confidence'       => 'certain',
-        'abnormal_sensors' => array_keys($matches),
-        'abnormal_levels'  => $levelsAbn,
+        'abnormal_sensors' => [],
+        'abnormal_levels'  => [],
         'levels'           => $levels,
-        'commands'         => $lenh,
-        'can_case_search'  => $canCase,
-        'ly_do_case_search'=> $lyDo,
-        'summary'          => implode(' | ', $summaryParts),
-        'action_taken'     => $actionTaken,
+        'commands'         => [],
+        'can_case_search'  => false,
+        'ly_do_case_search'=> null,
+        'summary'          => 'Tất cả chỉ số đang trong ngưỡng bình thường.',
+        'action_taken'     => null,
         'recommendation'   => [
-            'action'  => $actionTaken ? 'AUTO_CONTROL' : ($coLoi ? 'CHECK_SENSOR' : 'CHECK_ENVIRONMENT'),
-            'message' => $actionTaken['reason'] ?? 'Theo dõi thêm các chỉ số đang lệch ngưỡng.',
+            'action'  => 'NONE',
+            'message' => 'Không cần can thiệp, hệ thống đang ổn định.',
         ],
     ];
 }

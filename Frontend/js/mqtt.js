@@ -51,6 +51,11 @@ mqttClient.on('message', async (topic, payload) => {
             });
             const json = await res.json();
             console.log('💾 Lưu DB:', json);
+
+            // Cập nhật kết quả AI Web realtime lên Dashboard ngay khi input.php trả về (không cần chạy .bat)
+            if (json && json.ai_web && window.isAiWebEnabled && typeof renderAIWebInsight === 'function') {
+                renderAIWebInsight(json.ai_web);
+            }
         }
 
     } catch (e) {
@@ -232,7 +237,7 @@ function renderAIInsight(data) {
                 ? `MANUAL (tự động AUTO sau ${secs}s)` : 'MANUAL';
         } else {
             modeBadge.className = 'ai-badge ai-badge-auto';
-            modeBadge.innerText = 'AUTO';
+            modeBadge.innerText = 'Tự động (IoT)';
         }
     }
 
@@ -360,6 +365,18 @@ function renderAIWebInsight(data) {
     const timeStr = isNaN(t) ? '' : t.toLocaleTimeString('vi-VN');
     const dateStr = isNaN(t) ? '' : t.toLocaleDateString('vi-VN');
 
+    // Badge Chế độ Web (AUTO/MANUAL)
+    const modeBadge = document.getElementById('ai-web-mode-badge');
+    if (modeBadge) {
+        if (data.mode === 'MANUAL') {
+            modeBadge.className = 'ai-badge ai-badge-manual';
+            modeBadge.innerText = 'Thủ công';
+        } else {
+            modeBadge.className = 'ai-badge ai-badge-auto';
+            modeBadge.innerText = 'Tự động (Web)';
+        }
+    }
+
     // Badge trạng thái Web
     const badge = document.getElementById('ai-web-status-badge');
     if (badge) {
@@ -391,10 +408,12 @@ function renderAIWebInsight(data) {
 
     const timeEl = document.getElementById('ai-web-stat-time');
     if (timeEl) timeEl.innerText = timeStr || '--:--:--';
+    const devEl = document.getElementById('ai-web-stat-device');
+    if (devEl) devEl.innerText = `Thiết bị #${data.device_id || 18}`;
 
     // Diễn giải Web
     const summaryEl = document.getElementById('ai-web-summary');
-    if (summaryEl) summaryEl.innerText = analysis.summary || 'Không có dữ liệu phân tích từ Web.';
+    if (summaryEl) summaryEl.innerText = analysis.summary || 'Tất cả chỉ số đang trong ngưỡng bình thường.';
 
     // Khuyến nghị Web
     const recoWrap = document.getElementById('ai-web-recommendation');
@@ -407,6 +426,24 @@ function renderAIWebInsight(data) {
             if (recoMsg) recoMsg.innerText = reco.message;
         } else {
             recoWrap.style.display = 'none';
+        }
+    }
+
+    // Khung "Web AI vừa làm gì" (action_taken)
+    const actionBox = document.getElementById('ai-web-action-box');
+    const actionText = document.getElementById('ai-web-action-text');
+    const actionTaken = data.action_taken;
+    if (actionBox) {
+        if (actionTaken && actionTaken.device && actionTaken.command) {
+            const deviceLabel = AI_DEVICE_LABELS_VI[actionTaken.device] || actionTaken.device;
+            const commandLabel = actionTaken.command === 'ON' ? 'BẬT' : 'TẮT';
+            actionBox.style.display = 'flex';
+            if (actionText) {
+                actionText.innerHTML = `<strong>${timeStr}</strong> — Web AI tự động <strong>${commandLabel} ${deviceLabel}</strong>` +
+                    (actionTaken.reason ? ` — ${actionTaken.reason}` : '');
+            }
+        } else {
+            actionBox.style.display = 'none';
         }
     }
 

@@ -58,22 +58,30 @@ DEFAULT_THRESH = {
     "sensors": {
         "nhiet_do": {"label": "Nhiệt độ", "unit": "°C", "breaks": [28, 32], "fault_at_or_below": 0},
         "do_am": {"label": "Độ ẩm", "unit": "%", "breaks": [55, 75], "fault_at_or_below": 0},
-        "anh_sang": {"label": "Ánh sáng", "unit": "", "breaks": [367, 633], "fault_at_or_below": 0},
+        "anh_sang": {"label": "Ánh sáng", "unit": "lux", "breaks": [367, 633], "fault_at_or_below": 0},
         "muc_nuoc": {"label": "Mực nước", "unit": "", "breaks": [733, 1467], "fault_at_or_below": 0},
     },
     "phan_tich_mac_dinh": {
-        "nhiet_do": {"low": None,
-                     "high": {"severity": "danger", "title": "Nhiệt độ cao", "device": "quatgio", "command": "ON", "reason": "Nhiệt độ cao, bật quạt hạ nhiệt"},
-                     "fault": {"severity": "warning", "title": "Cảm biến nhiệt lỗi", "device": "quatgio", "command": "ON", "reason": "Cảm biến nhiệt lỗi, bật quạt an toàn"}},
-        "do_am": {"low": None,
-                  "high": {"severity": "warning", "title": "Độ ẩm cao", "device": "quatgio", "command": "ON", "reason": "Độ ẩm cao, bật quạt thông gió"},
-                  "fault": {"severity": "warning", "title": "Cảm biến độ ẩm lỗi", "device": None, "command": None, "reason": "Cảm biến độ ẩm lỗi, bỏ qua độ ẩm"}},
-        "anh_sang": {"low": {"severity": "warning", "title": "Thiếu sáng", "device": "denled", "command": "ON", "reason": "Thiếu sáng, bật đèn LED"},
-                     "high": None,
-                     "fault": {"severity": "warning", "title": "Cảm biến sáng lỗi", "device": "denled", "command": "OFF", "reason": "Cảm biến sáng lỗi, tắt đèn"}},
-        "muc_nuoc": {"low": {"severity": "warning", "title": "Mực nước thấp", "device": "maybom", "command": "ON", "reason": "Mực nước thấp, bật bơm"},
-                     "high": {"severity": "warning", "title": "Nước đầy", "device": "maybom", "command": "OFF", "reason": "Nước đầy, không bơm"},
-                     "fault": {"severity": "warning", "title": "Cảm biến nước lỗi", "device": "maybom", "command": "OFF", "reason": "Cảm biến nước lỗi, tắt bơm"}},
+        "nhiet_do": {
+            "low": {"severity": "warning", "title": "Nhiệt độ thấp", "device": "quatgio", "command": "OFF", "reason": "Nhiệt độ thấp, tắt quạt gió"},
+            "high": {"severity": "danger", "title": "Nhiệt độ cao", "device": "quatgio", "command": "ON", "reason": "Nhiệt độ cao, bật quạt hạ nhiệt"},
+            "fault": {"severity": "danger", "title": "Cảm biến nhiệt lỗi", "device": "quatgio", "command": "ON", "reason": "Cảm biến nhiệt lỗi, bật quạt an toàn"}
+        },
+        "do_am": {
+            "low": {"severity": "warning", "title": "Độ ẩm thấp", "device": "quatgio", "command": "OFF", "reason": "Độ ẩm thấp, giảm thông gió"},
+            "high": {"severity": "warning", "title": "Độ ẩm cao", "device": "quatgio", "command": "ON", "reason": "Độ ẩm cao, bật quạt thông gió"},
+            "fault": {"severity": "danger", "title": "Cảm biến độ ẩm lỗi", "device": None, "command": None, "reason": "Cảm biến độ ẩm lỗi, bỏ qua độ ẩm"}
+        },
+        "anh_sang": {
+            "low": {"severity": "warning", "title": "Thiếu sáng", "device": "denled", "command": "ON", "reason": "Thiếu sáng, bật đèn quang hợp"},
+            "high": None,
+            "fault": {"severity": "danger", "title": "Cảm biến sáng lỗi", "device": "denled", "command": "OFF", "reason": "Cảm biến sáng lỗi, tắt đèn"}
+        },
+        "muc_nuoc": {
+            "low": {"severity": "danger", "title": "Mực nước thấp", "device": "maybom", "command": "ON", "reason": "Mực nước thấp, bật bơm cấp nước"},
+            "high": {"severity": "warning", "title": "Nước đầy", "device": "maybom", "command": "OFF", "reason": "Nước đầy, ngắt bơm an toàn"},
+            "fault": {"severity": "danger", "title": "Cảm biến nước lỗi", "device": "maybom", "command": "OFF", "reason": "Cảm biến nước lỗi, tắt bơm"}
+        },
     },
 }
 
@@ -81,6 +89,7 @@ DEFAULT_THRESH = {
 def load_thresholds(path=None):
     here = os.path.dirname(os.path.abspath(__file__))
     candidates = [path] if path else [
+        os.path.join(here, "AI_Web", "thresholds.json"),
         os.path.join(here, "..", "AI_Web", "thresholds.json"),
         os.path.join(here, "thresholds.json"),
     ]
@@ -103,6 +112,35 @@ def get_level(cfg, sensor, value):
 
 def analyze_l1(cfg, v):
     """Bản Python của lớp 1 (engine.php): dùng cho AI Edge giả lập và để biết web PHẢI phản ứng thế nào."""
+    # Kiểm tra dải vật lý hợp lệ (đồng bộ 100% với checkPhysicalRange trong aquaponic_esp32.ino)
+    ranges = cfg.get("physical_ranges")
+    if ranges:
+        t, h, w, l = float(v.get("nhiet_do", 0)), float(v.get("do_am", 0)), float(v.get("muc_nuoc", 0)), float(v.get("anh_sang", 0))
+        phys_err = (
+            t < ranges["nhiet_do"]["min"] or t > ranges["nhiet_do"]["max"] or
+            h < ranges["do_am"]["min"] or h > ranges["do_am"]["max"] or
+            l < ranges["anh_sang"]["min"] or l > ranges["anh_sang"]["max"] or
+            w > ranges["muc_nuoc"]["max"] or
+            t <= 0 or h <= 0
+        )
+        if phys_err:
+            abn_map = {}
+            if t < ranges["nhiet_do"]["min"] or t > ranges["nhiet_do"]["max"]: abn_map["nhiet_do"] = "fault"
+            if h < ranges["do_am"]["min"] or h > ranges["do_am"]["max"]: abn_map["do_am"] = "fault"
+            if l < ranges["anh_sang"]["min"] or l > ranges["anh_sang"]["max"]: abn_map["anh_sang"] = "fault"
+            if w > ranges["muc_nuoc"]["max"]: abn_map["muc_nuoc"] = "fault"
+            return {
+                "levels": {k: "fault" for k in SENSORS},
+                "abnormal": abn_map if abn_map else {"sensor": "fault"},
+                "commands": {},
+                "call_l2": False,
+                "severity": "danger",
+                "fault": True,
+                "summary": "Gia tri cam bien vuot pham vi vat ly cho phep, nghi ngo cam bien loi.",
+                "action": None,
+                "reasons": {},
+            }
+
     levels, abn, cmds, no_default = {}, {}, {}, []
     parts, severity, fault = [], "warning", False
     reasons = {}
@@ -284,8 +322,18 @@ class ESP32:
                          "abnormal_sensors": [{"nhiet_do": "nhietdo", "do_am": "do_am", "anh_sang": "anhsang", "muc_nuoc": "muc_nuoc"}[k] for k in res["abnormal"]]},
             "recommendation": reco or (
                 {"action": "NONE", "message": "Không cần can thiệp, hệ thống đang ổn định."} if not res["abnormal"]
-                else {"action": "CHECK_SENSOR" if res["fault"] else "CHECK_ENVIRONMENT",
-                      "message": (action or {}).get("reason", "Theo dõi thêm các chỉ số đang lệch ngưỡng.")}),
+                else {
+                    "action": (
+                        "CHECK_SENSOR" if res["fault"]
+                        else ("CHECK_WATER_LEVEL" if "muc_nuoc" in res["abnormal"]
+                              else ("CHECK_LIGHTING" if "anh_sang" in res["abnormal"] else "CHECK_ENVIRONMENT"))
+                    ),
+                    "message": (
+                        "Nen kiem tra day ket noi va nguon cap cua cam bien." if res["fault"]
+                        else ((action or {}).get("reason") or "Theo dõi thêm các chỉ số đang lệch ngưỡng.")
+                    )
+                }
+            ),
         }
         if action:
             body["action_taken"] = action
@@ -294,6 +342,11 @@ class ESP32:
     def publish_ai_result(self, values=None, action=None, summary=None, reco=None):
         if not self.edge_ai:                 # AI IoT đang TẮT: không phát kết quả AI Edge nào
             return None
+        try:
+            cfg, _ = load_thresholds(getattr(self.a, 'thresholds', None))
+            self.cfg = cfg
+        except Exception:
+            pass
         v = values or self.last_values
         res = analyze_l1(self.cfg, v)
         with self.lock:
@@ -304,6 +357,11 @@ class ESP32:
 
     # ── AI Edge: phân tích + tự điều khiển (khi AUTO) ──
     def edge_step(self, values):
+        try:
+            cfg, _ = load_thresholds(getattr(self.a, 'thresholds', None))
+            self.cfg = cfg
+        except Exception:
+            pass
         res = analyze_l1(self.cfg, values)
         with self.lock:
             auto = self.mode == "AUTO"

@@ -182,18 +182,24 @@ try {
 
         $alertAnomalyType = ($anomalyType === 'none') ? 'action' : $anomalyType;
 
-        // Deduplication: Kiểm tra sự kiện cùng loại vẫn đang mở (trangthai = 0) trong vòng 90 giây
+        $isWeb = (strpos((string)$engine, 'web_') === 0) ? 1 : 0;
+        $nguonAI = $isWeb ? 'Web' : 'Edge';
+
+        // Deduplication: Kiểm tra sự kiện cùng loại vẫn đang mở (trangthai = 0) trong vòng 90 giây CỦA CÙNG NGUỒN (Edge hoặc Web)
         $stmtCheckOpen = $db->prepare(
-            "SELECT id, mucdo, so_lan_lap FROM ai_canhbao 
-             WHERE idthietbi = :id 
-               AND anomaly_type = :atype 
-               AND trangthai = 0 
-               AND TIMESTAMPDIFF(SECOND, COALESCE(thoigian_capnhat, thoigian), NOW()) <= 90
-             ORDER BY id DESC LIMIT 1"
+            "SELECT c.id, c.mucdo, c.so_lan_lap FROM ai_canhbao c
+             LEFT JOIN ai_ket_qua k ON c.id_ketqua = k.id
+             WHERE c.idthietbi = :id 
+               AND c.anomaly_type = :atype 
+               AND c.trangthai = 0 
+               AND ((:is_web = 1 AND k.engine LIKE 'web%') OR (:is_web = 0 AND (k.engine LIKE 'edge%' OR k.engine IS NULL)))
+               AND TIMESTAMPDIFF(SECOND, COALESCE(c.thoigian_capnhat, c.thoigian), NOW()) <= 90
+             ORDER BY c.id DESC LIMIT 1"
         );
         $stmtCheckOpen->execute([
-            ':id'    => $idthietbi,
-            ':atype' => $alertAnomalyType
+            ':id'     => $idthietbi,
+            ':atype'  => $alertAnomalyType,
+            ':is_web' => $isWeb
         ]);
         $openAlert = $stmtCheckOpen->fetch(PDO::FETCH_ASSOC);
 

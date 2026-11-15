@@ -555,7 +555,8 @@
                                             <span style="font-size:11px; background:#EDE9FE; color:#6D28D9; padding:2px 6px; border-radius:4px; font-weight:600; border:1px solid #DDD6FE;">Mô hình đối chứng</span>
                                         </div>
                                         <div style="display:flex; align-items:center; gap:6px;">
-                                            <span id="ai-web-status-badge" class="ai-badge ai-badge-idle">Chờ bật tool...</span>
+                                            <span id="ai-web-mode-badge" class="ai-badge ai-badge-idle">--</span>
+                                            <span id="ai-web-status-badge" class="ai-badge ai-badge-idle">Đang chờ dữ liệu...</span>
                                         </div>
                                     </div>
 
@@ -576,17 +577,22 @@
                                         <div>
                                             <div class="ai-stat-label">Cập nhật</div>
                                             <div id="ai-web-stat-time" class="ai-stat-value" style="font-size: var(--text-lg);">--:--:--</div>
-                                            <div class="ai-stat-sub">Server daemon</div>
+                                            <div class="ai-stat-sub" id="ai-web-stat-device">Thiết bị #--</div>
                                         </div>
                                     </div>
 
                                     <p id="ai-web-summary" class="ai-summary-text" style="flex:1;">
-                                        AI Web đang chờ kết nối từ tool daemon (web_ai_subscriber.php).
+                                        Chưa có dữ liệu phân tích. Web AI tự động xử lý khi có dữ liệu cảm biến.
                                     </p>
 
                                     <div id="ai-web-recommendation" class="ai-reco-row" style="display:none;">
                                         <span id="ai-web-reco-chip" class="ai-reco-chip" style="background:#EDE9FE; color:#6D28D9;">--</span>
                                         <span id="ai-web-reco-msg" class="ai-reco-msg"></span>
+                                    </div>
+
+                                    <div id="ai-web-action-box" class="ai-action-box" style="display:none; background:#F5F3FF; border-color:#DDD6FE; color:#6D28D9;">
+                                        <span class="material-symbols-outlined" style="font-size:18px; color:#7C3AED;">bolt</span>
+                                        <span id="ai-web-action-text"></span>
                                     </div>
                                 </div>
 

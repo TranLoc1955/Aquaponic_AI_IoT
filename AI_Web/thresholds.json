@@ -1,8 +1,42 @@
 {
-  "_ghi_chu": "NGUỒN NGƯỠNG DUY NHẤT cho engine.php (lớp 1) và python/ (lớp 2). Đổi ở đây rồi chạy lại python/train_rules.py và restart web_ai_subscriber.php + case_service.py. 'breaks' = [mốc giữa Thấp/Vừa, mốc giữa Vừa/Cao]; giá trị >= mốc thì lên mức kế tiếp. Giá trị <= fault_at_or_below = cảm biến lỗi (ESP32 gửi 0).",
+  "_ghi_chu": "BỘ NGƯỠNG ĐỒNG BỘ 100% GIỮA WEB AI VÀ IOT ESP32 (thresholds.h + aquaponic_esp32.ino)",
+  "physical_ranges": {
+    "nhiet_do": { "min": 18.0, "max": 34.0, "unit": "°C", "label": "Nhiệt độ" },
+    "do_am": { "min": 45.0, "max": 85.0, "unit": "%", "label": "Độ ẩm" },
+    "muc_nuoc": { "min": 150.0, "max": 2000.0, "unit": "", "label": "Mực nước" },
+    "anh_sang": { "min": 0.0, "max": 4095.0, "unit": "lux", "label": "Ánh sáng" }
+  },
+  "statistical_thresholds": {
+    "day": {
+      "nhiet_do": { "mean": 32.1799, "std": 1.1675, "delta_mean": -0.0004, "delta_std": 0.0351, "sample_count": 4237 },
+      "do_am": { "mean": 73.0322, "std": 7.1349, "delta_mean": 0.0019, "delta_std": 0.0949, "sample_count": 4237 },
+      "muc_nuoc": { "mean": 1298.6571, "std": 183.0833, "delta_mean": -0.1295, "delta_std": 38.7036, "sample_count": 4237 },
+      "anh_sang": { "mean": 2000.0, "std": 1000.0, "delta_mean": 0.0, "delta_std": 1500.0, "sample_count": 0 }
+    },
+    "night": {
+      "nhiet_do": { "mean": 30.9465, "std": 1.2752, "delta_mean": -0.0008, "delta_std": 0.0429, "sample_count": 2164 },
+      "do_am": { "mean": 79.3879, "std": 6.1631, "delta_mean": 0.0059, "delta_std": 0.2130, "sample_count": 2164 },
+      "muc_nuoc": { "mean": 1448.0667, "std": 152.9441, "delta_mean": -0.0435, "delta_std": 31.4759, "sample_count": 2164 },
+      "anh_sang": { "mean": 2000.0, "std": 1000.0, "delta_mean": 0.0, "delta_std": 1500.0, "sample_count": 0 }
+    }
+  },
+  "crop_profile": {
+    "name": "PROFILE_LEAFY",
+    "vpd_min": 0.6,
+    "vpd_max": 1.2,
+    "dli_target": 1.2
+  },
+  "control": {
+    "water_low": 200,
+    "water_high": 2000,
+    "temp_on": 32.0,
+    "temp_off": 31.0,
+    "ppfd_led_on": 9.0,
+    "ppfd_led_off": 18.0
+  },
   "case_trigger": {
     "min_abnormal_sensors": 2,
-    "_ghi_chu": "Lớp 2 được gọi khi: (a) từ min_abnormal_sensors cảm biến trở lên lệch khỏi mức 'mid', HOẶC (b) có cảm biến lệch mà phan_tich_mac_dinh của nó = null (ngưỡng mặc định không có phân tích)."
+    "_ghi_chu": "Lớp 2 Python gọi khi có từ 2 cảm biến lệch ngưỡng thống kê."
   },
   "sensors": {
     "nhiet_do": {
@@ -12,33 +46,32 @@
       "label": "Độ ẩm", "unit": "%", "breaks": [55, 75], "fault_at_or_below": 0, "near_margin": 2
     },
     "anh_sang": {
-      "label": "Ánh sáng", "unit": "", "breaks": [367, 633], "fault_at_or_below": 0, "near_margin": 20
+      "label": "Ánh sáng", "unit": "lux", "breaks": [367, 633], "fault_at_or_below": 0, "near_margin": 20
     },
     "muc_nuoc": {
       "label": "Mực nước", "unit": "", "breaks": [733, 1467], "fault_at_or_below": 0, "near_margin": 40
     }
   },
   "phan_tich_mac_dinh": {
-    "_ghi_chu": "Phân tích + hành động mà ngưỡng mặc định (lớp 1) TỰ BIẾT cho từng cảm biến/mức. null = lớp 1 không có phân tích cho mức này -> chuyển sang lớp 2 (Python).",
     "nhiet_do": {
-      "low":   null,
-      "high":  {"severity": "danger",  "title": "Nhiệt độ cao",       "device": "quatgio", "command": "ON",  "reason": "Nhiệt độ cao, bật quạt hạ nhiệt"},
-      "fault": {"severity": "warning", "title": "Cảm biến nhiệt lỗi", "device": "quatgio", "command": "ON",  "reason": "Cảm biến nhiệt lỗi, bật quạt an toàn"}
+      "low":   {"severity": "warning", "title": "Nhiệt độ thấp",       "device": "quatgio", "command": "OFF", "reason": "Nhiệt độ thấp, tắt quạt gió"},
+      "high":  {"severity": "danger",  "title": "Nhiệt độ cao",        "device": "quatgio", "command": "ON",  "reason": "Nhiệt độ cao, bật quạt hạ nhiệt"},
+      "fault": {"severity": "danger",  "title": "Cảm biến nhiệt lỗi",  "device": "quatgio", "command": "ON",  "reason": "Cảm biến nhiệt lỗi, bật quạt an toàn"}
     },
     "do_am": {
-      "low":   null,
-      "high":  {"severity": "warning", "title": "Độ ẩm cao",          "device": "quatgio", "command": "ON",  "reason": "Độ ẩm cao, bật quạt thông gió"},
-      "fault": {"severity": "warning", "title": "Cảm biến độ ẩm lỗi", "device": null,      "command": null,  "reason": "Cảm biến độ ẩm lỗi, bỏ qua độ ẩm"}
+      "low":   {"severity": "warning", "title": "Độ ẩm thấp",           "device": "quatgio", "command": "OFF", "reason": "Độ ẩm thấp, giảm thông gió"},
+      "high":  {"severity": "warning", "title": "Độ ẩm cao",           "device": "quatgio", "command": "ON",  "reason": "Độ ẩm cao, bật quạt thông gió"},
+      "fault": {"severity": "danger",  "title": "Cảm biến độ ẩm lỗi",  "device": null,      "command": null,  "reason": "Cảm biến độ ẩm lỗi, bỏ qua độ ẩm"}
     },
     "anh_sang": {
-      "low":   {"severity": "warning", "title": "Thiếu sáng",         "device": "denled",  "command": "ON",  "reason": "Thiếu sáng, bật đèn LED"},
+      "low":   {"severity": "warning", "title": "Thiếu sáng",          "device": "denled",  "command": "ON",  "reason": "Thiếu sáng, bật đèn quang hợp"},
       "high":  null,
-      "fault": {"severity": "warning", "title": "Cảm biến sáng lỗi",  "device": "denled",  "command": "OFF", "reason": "Cảm biến sáng lỗi, tắt đèn"}
+      "fault": {"severity": "danger",  "title": "Cảm biến sáng lỗi",   "device": "denled",  "command": "OFF", "reason": "Cảm biến sáng lỗi, tắt đèn"}
     },
     "muc_nuoc": {
-      "low":   {"severity": "warning", "title": "Mực nước thấp",      "device": "maybom",  "command": "ON",  "reason": "Mực nước thấp, bật bơm"},
-      "high":  {"severity": "warning", "title": "Nước đầy",           "device": "maybom",  "command": "OFF", "reason": "Nước đầy, không bơm"},
-      "fault": {"severity": "warning", "title": "Cảm biến nước lỗi",  "device": "maybom",  "command": "OFF", "reason": "Cảm biến nước lỗi, tắt bơm"}
+      "low":   {"severity": "danger",  "title": "Mực nước thấp",       "device": "maybom",  "command": "ON",  "reason": "Mực nước thấp, bật bơm cấp nước"},
+      "high":  {"severity": "warning", "title": "Nước đầy",            "device": "maybom",  "command": "OFF", "reason": "Nước đầy, ngắt bơm an toàn"},
+      "fault": {"severity": "danger",  "title": "Cảm biến nước lỗi",   "device": "maybom",  "command": "OFF", "reason": "Cảm biến nước lỗi, tắt bơm"}
     }
   }
 }
